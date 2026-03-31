@@ -60,10 +60,17 @@ src/rapids_core/                # Python framework logic
 ├── plugin_governance.py        # Plugin structure + capability collision checks
 ├── cost_tracker.py             # JSONL cost aggregation
 ├── plugin_scaffold.py          # Domain plugin generator
-└── recording.py                # Session capture/replay for testing
+├── recording.py                # Session capture/replay for testing
+├── project_registry.py         # Central project tracking (~/.rapids/projects.json)
+├── ascii_art.py                # Phase banners, activity displays, welcome screen
+├── onboarding.py               # AskUserQuestion payloads for /start flow
+├── phase_questions.py           # AskUserQuestion payloads for /go flow
+├── dependency_graph_generator.py # Feature spec XMLs → dependency-graph.json
+├── batch_dispatcher.py          # Dispatch plans for /batch parallel execution
+└── agent_team_orchestrator.py   # Multi-agent team plans for Tier 4-5 waves
 
 tests/                          # Multi-layer test suite
-├── framework/test_*.py         # F1: 140 unit tests (zero LLM, $0)
+├── framework/test_*.py         # F1: 326 unit tests (zero LLM, $0)
 ├── framework/hooks/            # F2: 16 hook integration tests ($0)
 ├── framework/recordings/       # F3: Recorded replay tests ($0)
 ├── framework/smoke/            # F4: LLM smoke tests (~$0.05)
@@ -88,7 +95,7 @@ pip install -e ".[dev]"
 ### Run Tests
 
 ```bash
-make test          # F1: 140 unit tests (~0.3s, $0)
+make test          # F1: 326 unit tests (~0.3s, $0)
 make test-hooks    # F2: 16 hook integration tests ($0)
 make test-replay   # F3: Recorded replay tests ($0)
 make test-all      # All free tests
@@ -104,9 +111,37 @@ make test-smoke    # F4: LLM smoke tests (~$0.05)
 claude --plugin-dir ./rapids-core
 
 # In the Claude Code session:
-/rapids-core:start Build a payment dashboard with React and PostgreSQL
-/rapids-core:go         # advance to next phase
-/rapids-core:status     # check progress and cost
+/rapids-core:start
+```
+
+On start, RAPIDS displays a welcome banner with all managed projects and asks for:
+1. The **working directory** for your project
+2. A **description** of what you want to build
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║   ██████╗   █████╗  ██████╗  ██╗ ██████╗  ███████╗                          ║
+║   ██╔══██╗ ██╔══██╗ ██╔══██╗ ██║ ██╔══██╗ ██╔════╝                          ║
+║   ██████╔╝ ███████║ ██████╔╝ ██║ ██║  ██║ ███████╗                          ║
+║   ██╔══██╗ ██╔══██║ ██╔═══╝  ██║ ██║  ██║ ╚════██║                          ║
+║   ██║  ██║ ██║  ██║ ██║      ██║ ██████╔╝ ███████║                          ║
+║   ╚═╝  ╚═╝ ╚═╝  ╚═╝ ╚═╝      ╚═╝ ╚═════╝  ╚══════╝                          ║
+║                                                                              ║
+║   MANAGED PROJECTS                                                           ║
+║   ────────────────                                                           ║
+║   #    PROJECT              TIER     PHASE          STATUS     DIRECTORY      ║
+║   1    payment-dashboard    T3       implement      ● active   /home/dev/pay  ║
+║   2    auth-service         T4       analysis       ● active   /home/dev/auth ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+Then use the other skills to drive the project:
+
+```bash
+/rapids-core:go         # advance to next phase (shows phase transition banner)
+/rapids-core:status     # check progress with visual phase display
 /rapids-core:export     # generate client deliverables
 ```
 
@@ -177,13 +212,80 @@ Each phase produces artifacts stored in `.rapids/phases/`:
 | Deploy | Deployment config, smoke test results |
 | Sustain | Monitoring config, alerting rules, runbooks |
 
+### Project Registry
+
+RAPIDS maintains a **central project registry** at `~/.rapids/projects.json` that tracks all projects under management. This persists across sessions and working directories.
+
+```bash
+# Shell scripts for registry management
+rapids-core/scripts/project-registry.sh list              # Show all active projects
+rapids-core/scripts/project-registry.sh get /path/to/proj  # Look up a specific project
+```
+
+Each registered project tracks: name, path, tier, current phase, plugins, status (active/inactive), and timestamps.
+
+### Phase Visualization (ASCII Art)
+
+Every RAPIDS operation displays a clear visual banner showing:
+- **Which phase** you're currently in (highlighted in the phase pipeline)
+- **What activity** is about to happen
+- **Completed phases** (checkmarked) vs **upcoming phases** (circles)
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║                  R A P I D S  —  IMPLEMENTATION PHASE                        ║
+║                                                                              ║
+╟──────────────────────────────────────────────────────────────────────────────╢
+║                                                                              ║
+║   ✓R✓ ──  ✓A✓ ──  ✓P✓ ── ▐█I█▌ ──  ○D○ ──  ·S·                             ║
+║                                                                              ║
+║   ✓ [R] RESEARCH         (completed)                                         ║
+║   ✓ [A] ARCHITECTURE     (completed)                                         ║
+║   ✓ [P] PLANNING         (completed)                                         ║
+║   ▶ [I] IMPLEMENTATION   Code, test, commit — one criterion at a time        ║
+║   ○ [D] DEPLOYMENT       (upcoming)                                          ║
+║   · [S] STABILIZATION    (not in scope)                                      ║
+║                                                                              ║
+║   ┌────────────────────────────────────────────────────────────┐              ║
+║   │  CURRENT ACTIVITY:                                        │              ║
+║   │  Wave 2 — Feature F003: Payment Processing                │              ║
+║   └────────────────────────────────────────────────────────────┘              ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+Phase transitions also get their own banner:
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║   ╔══════════════════════════════════════════════════════════════════╗       ║
+║   ║   PHASE TRANSITION                                               ║       ║
+║   ║        PLANNING  ━━━━▶  IMPLEMENTATION                          ║       ║
+║   ╚══════════════════════════════════════════════════════════════════╝       ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+### Template-Based Artifact Scaffolding
+
+When a project starts or transitions to a new phase, RAPIDS copies **artifact templates** into the phase directory so you always have a structured starting point:
+
+| Phase | Templates Scaffolded |
+|-------|---------------------|
+| Research | `problem-statement.md` |
+| Analysis | `solution-design.md`, `adr-template.md` |
+| Plan | `feature-spec-template.xml` |
+| Implement | `evaluator-prompt.md`, `feature-progress-template.json` |
+
+Templates are never overwritten — if you've already started working on an artifact, it's preserved.
+
 ### Hooks
 
 RAPIDS uses 7 Claude Code lifecycle hooks:
 
 | Hook | Purpose |
 |------|---------|
-| SessionStart | Load state, generate CLAUDE.md, handle resume |
+| SessionStart | Load state, display phase banner, generate CLAUDE.md, handle resume |
 | PostToolUse | Cost tracking, audit logging, artifact validation |
 | Stop | Phase gate — block exit if required artifacts are missing |
 | PreCompact | Archive context before conversation compaction |

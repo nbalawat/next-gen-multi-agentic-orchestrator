@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SessionStart hook: loads RAPIDS state and generates CLAUDE.md
+# SessionStart hook: loads RAPIDS state, shows ASCII banner, and generates CLAUDE.md
 # Input (stdin): {"session_id": "...", "source": "startup|resume", "cwd": "..."}
 set -euo pipefail
 
@@ -21,6 +21,34 @@ fi
 if [ ! -f "$RAPIDS_DIR/rapids.json" ]; then
     exit 0
 fi
+
+# Display RAPIDS phase banner
+python3 -c "
+import json
+from pathlib import Path
+from rapids_core.ascii_art import phase_banner
+from rapids_core.phase_router import route_phases
+
+config = json.loads(Path('$RAPIDS_DIR/rapids.json').read_text())
+phase = config.get('current', {}).get('phase', 'unknown')
+tier = config.get('scope', {}).get('tier', 0)
+project_id = config.get('project', {}).get('id', 'unknown')
+phases = route_phases(tier)
+
+source = '$SOURCE'
+if source == 'resume':
+    activity = 'Resuming session — picking up where we left off'
+else:
+    activity = 'Session started — ready to work'
+
+print(phase_banner(
+    current_phase=phase,
+    activity=activity,
+    tier=tier,
+    project_name=project_id,
+    phases_in_scope=phases,
+))
+" >&2
 
 # Generate CLAUDE.md
 "$PLUGIN_ROOT/scripts/claude-md-generator.sh" "$CWD" >&2
