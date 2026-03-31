@@ -323,6 +323,38 @@ print(phase_banner(
    - Run evaluators after each feature completes
    - Handle retries and escalation
 
+4b. **Save dispatch plan and initialize feature progress:**
+
+   After generating the dispatch plan (batch or agent teams), save it and
+   initialize progress tracking:
+
+   ```bash
+   python3 -c "
+   import json
+   from pathlib import Path
+   from rapids_core.feature_progress import initialize_feature_progress
+
+   # Save the dispatch plan for rapids-lead to read
+   plan = <the_generated_plan_dict>
+   Path('.rapids/phases/implement/dispatch-plan.json').write_text(json.dumps(plan, indent=2))
+
+   # Initialize feature progress files from feature specs
+   impl_dir = '.rapids/phases/implement'
+   for task in plan.get('tasks', plan.get('assignments', [])):
+       fid = task['feature_id']
+       spec_path = Path(f'.rapids/phases/plan/{fid}.xml')
+       if spec_path.exists():
+           initialize_feature_progress(fid, spec_path.read_text(), impl_dir)
+   "
+   ```
+
+   **If agent teams**: Spawn the `rapids-lead` agent with the full plan.
+   The lead agent handles worktree creation, generator spawning, evaluator
+   dispatch, and merge-back (see `rapids-core/agents/rapids-lead.md`).
+
+   **If batch**: Invoke `/batch` with the formatted prompts. Claude Code handles
+   worktree creation automatically for each parallel worker.
+
 5. **For each feature (within batch or agent team)**, display activity banners:
    ```bash
    python3 -c "
