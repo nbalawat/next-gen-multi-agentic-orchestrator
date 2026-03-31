@@ -3,6 +3,7 @@ activities:
   - id: environment-setup
     name: Environment Setup
     description: Set up development environment, dependencies, and test infrastructure
+    when: {min_tier: 3, types: [feature]}
     inputs:
       - {name: solution-design, type: markdown, source: previous_phase}
       - {name: tech-stack, type: markdown, source: previous_phase}
@@ -15,6 +16,7 @@ activities:
   - id: wave-execution
     name: Wave Execution
     description: Execute implementation waves using Generator-Evaluator pattern
+    when: {required: true}
     depends_on: [environment-setup]
     inputs:
       - {name: wave-plan, type: json, source: previous_phase}
@@ -31,6 +33,7 @@ activities:
   - id: code-review
     name: Code Review
     description: Run /simplify for code reuse, quality, and efficiency review
+    when: {min_tier: 2}
     depends_on: [wave-execution]
     inputs:
       - {name: source-code, type: code, from: wave-execution}
@@ -43,6 +46,7 @@ activities:
   - id: integration-testing
     name: Integration Testing
     description: Run full integration test suite and verify all features work together
+    when: {min_tier: 3}
     depends_on: [wave-execution]
     inputs:
       - {name: source-code, type: code, from: wave-execution}

@@ -3,6 +3,7 @@ activities:
   - id: deployment-config
     name: Deployment Configuration
     description: Create deployment configurations, CI/CD pipelines, and infrastructure-as-code
+    when: {required: true}
     inputs:
       - {name: solution-design, type: markdown, source: previous_phase}
       - {name: source-code, type: code, source: previous_phase}
@@ -15,6 +16,7 @@ activities:
   - id: staging-deploy
     name: Staging Deployment
     description: Deploy to staging environment for pre-production verification
+    when: {min_tier: 3}
     depends_on: [deployment-config]
     inputs:
       - {name: deploy-config, type: config, from: deployment-config}
@@ -27,6 +29,7 @@ activities:
   - id: smoke-testing
     name: Smoke Testing
     description: Run smoke tests against staging to verify core functionality
+    when: {required: true}
     depends_on: [staging-deploy]
     inputs:
       - {name: staging-result, type: markdown, from: staging-deploy}
@@ -39,6 +42,7 @@ activities:
   - id: production-deploy
     name: Production Deployment
     description: Deploy to production after staging verification passes
+    when: {min_tier: 3}
     depends_on: [smoke-testing]
     inputs:
       - {name: smoke-results, type: markdown, from: smoke-testing}

@@ -3,6 +3,7 @@ activities:
   - id: monitoring-setup
     name: Monitoring Setup
     description: Configure application and infrastructure monitoring dashboards
+    when: {required: true}
     inputs:
       - {name: production-result, type: markdown, source: previous_phase}
     outputs:
@@ -14,6 +15,7 @@ activities:
   - id: alerting-rules
     name: Alerting Rules
     description: Define alerting thresholds, notification channels, and escalation policies
+    when: {min_tier: 5}
     depends_on: [monitoring-setup]
     inputs:
       - {name: monitoring-config, type: config, from: monitoring-setup}
@@ -26,6 +28,7 @@ activities:
   - id: runbook-creation
     name: Operational Runbook
     description: Document operational procedures, troubleshooting guides, and incident response
+    when: {min_tier: 5}
     depends_on: [monitoring-setup, alerting-rules]
     inputs:
       - {name: monitoring-config, type: config, from: monitoring-setup}

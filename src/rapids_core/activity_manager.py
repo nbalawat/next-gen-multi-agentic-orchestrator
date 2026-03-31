@@ -81,6 +81,259 @@ def load_phase_activities(
     return activities
 
 
+def select_activities(
+    activities: list[dict],
+    tier: int,
+    item_type: str = "feature",
+) -> list[dict]:
+    """Filter activities based on work item context using ``when`` conditions.
+
+    Each activity can have a ``when`` dict with these optional fields:
+
+    - ``required``: If True, always included regardless of tier/type.
+    - ``min_tier``: Minimum tier required (activity skipped if tier < min_tier).
+    - ``max_tier``: Maximum tier allowed (activity skipped if tier > max_tier).
+    - ``types``: List of work item types this applies to (e.g., ``["feature", "refactor"]``).
+
+    Activities without a ``when`` clause are always included.
+
+    When an activity is pruned, its dependents have the pruned activity's
+    ``depends_on`` inherited (dependency re-wiring). This keeps the DAG valid.
+
+    Args:
+        activities: Full list of activity dicts (from ``load_phase_activities``).
+        tier: The work item's scope tier (1-5).
+        item_type: The work item type (``bug``, ``enhancement``, ``feature``, ``refactor``).
+
+    Returns:
+        Filtered list of activity dicts with dependencies re-wired.
+    """
+    # First pass: determine which activities are included
+    included_ids: set[str] = set()
+    excluded_ids: set[str] = set()
+    activity_map: dict[str, dict] = {}
+
+    for act in activities:
+        activity_map[act["id"]] = act
+        when = act.get("when")
+
+        if when is None:
+            # No condition → always included
+            included_ids.add(act["id"])
+            continue
+
+        if when.get("required"):
+            included_ids.add(act["id"])
+            continue
+
+        min_tier = when.get("min_tier", 1)
+        max_tier = when.get("max_tier", 5)
+        allowed_types = when.get("types")
+
+        if tier < min_tier or tier > max_tier:
+            excluded_ids.add(act["id"])
+            continue
+
+        if allowed_types and item_type not in allowed_types:
+            excluded_ids.add(act["id"])
+            continue
+
+        included_ids.add(act["id"])
+
+    # Second pass: re-wire dependencies around excluded activities
+    # If A depends on B, and B is excluded but B depended on C,
+    # then A should now depend on C directly.
+    def resolve_deps(dep_ids: list[str]) -> list[str]:
+        resolved: list[str] = []
+        for dep_id in dep_ids:
+            if dep_id in included_ids:
+                resolved.append(dep_id)
+            elif dep_id in activity_map:
+                # Excluded: inherit its dependencies
+                parent_deps = activity_map[dep_id].get("depends_on", [])
+                resolved.extend(resolve_deps(parent_deps))
+        return resolved
+
+    result = []
+    for act in activities:
+        if act["id"] not in included_ids:
+            continue
+        # Re-wire deps to skip excluded activities
+        original_deps = act.get("depends_on", [])
+        new_deps = resolve_deps(original_deps)
+        # Remove duplicates and self-refs, keep only included
+        new_deps = sorted(set(d for d in new_deps if d in included_ids and d != act["id"]))
+        act_copy = dict(act)
+        act_copy["depends_on"] = new_deps
+        result.append(act_copy)
+
+    return result
+
+
+def recommend_activities(
+    all_activities: list[dict],
+    tier: int,
+    item_type: str = "feature",
+    description: str = "",
+    keywords: list[str] | None = None,
+) -> tuple[list[dict], list[dict]]:
+    """Recommend which activities to include based on work item context.
+
+    Returns two lists: **required** (always included) and **recommended**
+    (suggested based on tier/type/keywords, user can deselect).
+
+    The engine dynamically selects activities by:
+    1. Static ``when`` conditions (tier, type)
+    2. Keyword matching against the problem description
+    3. Activities with ``required: true`` are always included
+
+    Args:
+        all_activities: Full list of activity dicts from ``load_phase_activities``.
+        tier: Work item scope tier (1-5).
+        item_type: Work item type (bug, enhancement, feature, refactor).
+        description: Problem statement or work item description for keyword matching.
+        keywords: Additional keywords to match against activity descriptions.
+
+    Returns:
+        Tuple of (required_activities, recommended_activities).
+        Required activities cannot be deselected. Recommended ones are suggestions
+        the user can confirm or override.
+    """
+    if keywords is None:
+        keywords = []
+
+    # Extract keywords from description
+    desc_lower = description.lower()
+    desc_words = set(desc_lower.split())
+
+    required: list[dict] = []
+    recommended: list[dict] = []
+    excluded: list[dict] = []
+
+    for act in all_activities:
+        when = act.get("when")
+
+        # No when clause or required → always required
+        if when is None or when.get("required"):
+            required.append(act)
+            continue
+
+        # Check tier bounds
+        min_tier = when.get("min_tier", 1)
+        max_tier = when.get("max_tier", 5)
+        if tier < min_tier or tier > max_tier:
+            # Outside tier range — but check keyword relevance
+            if _keyword_match(act, desc_lower, desc_words, keywords):
+                recommended.append(act)
+            else:
+                excluded.append(act)
+            continue
+
+        # Check type filter
+        allowed_types = when.get("types")
+        if allowed_types and item_type not in allowed_types:
+            # Wrong type — but check keyword relevance
+            if _keyword_match(act, desc_lower, desc_words, keywords):
+                recommended.append(act)
+            else:
+                excluded.append(act)
+            continue
+
+        # Passes all static filters → recommended
+        recommended.append(act)
+
+    return required, recommended
+
+
+def _keyword_match(
+    activity: dict,
+    desc_lower: str,
+    desc_words: set[str],
+    extra_keywords: list[str],
+) -> bool:
+    """Check if an activity's name/description matches keywords in the problem description."""
+    act_name = activity.get("name", "").lower()
+    act_desc = activity.get("description", "").lower()
+    act_words = set(act_name.split()) | set(act_desc.split())
+
+    # Check for meaningful word overlap (ignore common words)
+    common_words = {"the", "a", "an", "and", "or", "of", "to", "for", "in", "on", "is", "with"}
+    meaningful_act_words = act_words - common_words
+    meaningful_desc_words = desc_words - common_words
+
+    overlap = meaningful_act_words & meaningful_desc_words
+    if len(overlap) >= 2:
+        return True
+
+    # Check extra keywords
+    for kw in extra_keywords:
+        if kw.lower() in act_name or kw.lower() in act_desc:
+            return True
+
+    return False
+
+
+def build_activity_confirmation(
+    required: list[dict],
+    recommended: list[dict],
+    phase: str,
+) -> dict:
+    """Build an AskUserQuestion payload for confirming activity selection.
+
+    Required activities are shown as pre-selected (informational).
+    Recommended activities are shown as a multiSelect checklist.
+
+    Args:
+        required: List of required activity dicts (always included).
+        recommended: List of recommended activity dicts (user can toggle).
+        phase: The phase name.
+
+    Returns:
+        AskUserQuestion payload dict.
+    """
+    # Build options from recommended activities (required are not toggleable)
+    options = []
+    for act in recommended[:4]:  # Max 4 options
+        options.append({
+            "label": act["name"],
+            "description": act.get("description", "")[:80],
+        })
+
+    # If no recommended, just show a confirmation
+    if not options:
+        options = [
+            {
+                "label": "Proceed with required activities only",
+                "description": f"{len(required)} required activity(ies) for {phase} phase",
+            },
+            {
+                "label": "Add custom activity",
+                "description": "Describe an additional activity to include",
+            },
+        ]
+
+    # Build the question
+    req_names = ", ".join(a["name"] for a in required)
+    question = (
+        f"Activities for {phase.capitalize()} phase. "
+        f"Required: {req_names}. "
+        f"Which recommended activities should we include?"
+        if required
+        else f"Which activities should we include for {phase.capitalize()} phase?"
+    )
+
+    return {
+        "questions": [
+            {
+                "question": question,
+                "header": "Activities",
+                "multiSelect": True,
+                "options": options,
+            }
+        ]
+    }
+
+
 def compute_activity_waves(activities: list[dict]) -> list[list[str]]:
     """Compute execution waves for activities using topological sort.
 

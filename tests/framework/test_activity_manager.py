@@ -8,6 +8,9 @@ import yaml
 
 from rapids_core.activity_manager import (
     load_phase_activities,
+    select_activities,
+    recommend_activities,
+    build_activity_confirmation,
     compute_activity_waves,
     initialize_activity_progress,
     read_activity_progress,
@@ -168,6 +171,237 @@ class TestPluginMerge:
         acts = load_phase_activities("research", activities_dir=activities_dir, plugin_activities=plugin_acts)
         gcp = [a for a in acts if a["id"] == "gcp:gcp-review"][0]
         assert "domain-survey" in gcp["depends_on"]
+
+
+class TestSelectActivities:
+    """Test activity filtering based on tier, type, and when conditions."""
+
+    def _make_activities(self):
+        return [
+            {"id": "a1", "name": "Always", "depends_on": []},
+            {"id": "a2", "name": "Required", "when": {"required": True}, "depends_on": []},
+            {"id": "a3", "name": "Tier 3+", "when": {"min_tier": 3}, "depends_on": []},
+            {"id": "a4", "name": "Tier 4+", "when": {"min_tier": 4}, "depends_on": ["a3"]},
+            {"id": "a5", "name": "Feature only", "when": {"types": ["feature"]}, "depends_on": ["a1"]},
+            {"id": "a6", "name": "Tier 1-2", "when": {"max_tier": 2}, "depends_on": []},
+        ]
+
+    def test_no_when_always_included(self):
+        acts = self._make_activities()
+        selected = select_activities(acts, tier=1, item_type="bug")
+        ids = [a["id"] for a in selected]
+        assert "a1" in ids
+
+    def test_required_always_included(self):
+        acts = self._make_activities()
+        selected = select_activities(acts, tier=1, item_type="bug")
+        ids = [a["id"] for a in selected]
+        assert "a2" in ids
+
+    def test_min_tier_filters(self):
+        acts = self._make_activities()
+        # Tier 1: a3 (min_tier=3) should be excluded
+        selected = select_activities(acts, tier=1)
+        ids = [a["id"] for a in selected]
+        assert "a3" not in ids
+        # Tier 3: a3 should be included
+        selected = select_activities(acts, tier=3)
+        ids = [a["id"] for a in selected]
+        assert "a3" in ids
+
+    def test_max_tier_filters(self):
+        acts = self._make_activities()
+        # Tier 1: a6 (max_tier=2) should be included
+        selected = select_activities(acts, tier=1)
+        ids = [a["id"] for a in selected]
+        assert "a6" in ids
+        # Tier 3: a6 should be excluded
+        selected = select_activities(acts, tier=3)
+        ids = [a["id"] for a in selected]
+        assert "a6" not in ids
+
+    def test_type_filters(self):
+        acts = self._make_activities()
+        # Feature type: a5 included
+        selected = select_activities(acts, tier=1, item_type="feature")
+        ids = [a["id"] for a in selected]
+        assert "a5" in ids
+        # Bug type: a5 excluded
+        selected = select_activities(acts, tier=1, item_type="bug")
+        ids = [a["id"] for a in selected]
+        assert "a5" not in ids
+
+    def test_dependency_rewiring(self):
+        """When a4 depends on a3 and a3 is pruned, a4's deps should skip a3."""
+        acts = self._make_activities()
+        # Tier 5: both a3 and a4 included
+        selected = select_activities(acts, tier=5)
+        a4 = [a for a in selected if a["id"] == "a4"][0]
+        assert "a3" in a4["depends_on"]
+
+    def test_dependency_rewiring_on_prune(self):
+        """Chain: c depends on b, b depends on a. Prune b. c should depend on a."""
+        acts = [
+            {"id": "a", "name": "Base", "depends_on": []},
+            {"id": "b", "name": "Middle", "when": {"min_tier": 5}, "depends_on": ["a"]},
+            {"id": "c", "name": "Top", "when": {"required": True}, "depends_on": ["b"]},
+        ]
+        selected = select_activities(acts, tier=3)  # b excluded
+        ids = [a["id"] for a in selected]
+        assert "b" not in ids
+        c = [a for a in selected if a["id"] == "c"][0]
+        assert "a" in c["depends_on"]
+
+    def test_tier_1_bug_minimal_activities(self):
+        """A Tier 1 bug fix should get minimal activities."""
+        acts = self._make_activities()
+        selected = select_activities(acts, tier=1, item_type="bug")
+        ids = [a["id"] for a in selected]
+        # Only: a1 (no when), a2 (required), a6 (max_tier=2)
+        assert set(ids) == {"a1", "a2", "a6"}
+
+    def test_tier_5_feature_all_applicable(self):
+        """A Tier 5 feature should get all activities except max_tier=2."""
+        acts = self._make_activities()
+        selected = select_activities(acts, tier=5, item_type="feature")
+        ids = [a["id"] for a in selected]
+        assert "a1" in ids
+        assert "a2" in ids
+        assert "a3" in ids
+        assert "a4" in ids
+        assert "a5" in ids
+        assert "a6" not in ids  # max_tier=2, excluded at tier 5
+
+    def test_selected_activities_form_valid_dag(self):
+        """After filtering, the remaining activities should form a valid DAG."""
+        acts = self._make_activities()
+        for tier in range(1, 6):
+            selected = select_activities(acts, tier=tier)
+            # All depends_on should reference included activities
+            included = {a["id"] for a in selected}
+            for act in selected:
+                for dep in act["depends_on"]:
+                    assert dep in included, f"Tier {tier}: {act['id']} depends on pruned {dep}"
+
+    def test_real_research_yaml_tier_1(self):
+        """Tier 1 bug fix in research phase gets only required activities."""
+        real_dir = Path(__file__).parent.parent.parent / "rapids-core" / "activities"
+        if not real_dir.exists():
+            pytest.skip("rapids-core/activities/ not found")
+        acts = load_phase_activities("research", activities_dir=real_dir)
+        selected = select_activities(acts, tier=1, item_type="bug")
+        ids = [a["id"] for a in selected]
+        # Only problem-statement is required
+        assert "problem-statement" in ids
+        # domain-survey (min_tier=3) excluded
+        assert "domain-survey" not in ids
+
+
+class TestRecommendActivities:
+    """Test dynamic activity recommendation based on tier, type, and description."""
+
+    def _make_activities(self):
+        return [
+            {"id": "a-required", "name": "Core Setup", "when": {"required": True}, "depends_on": [],
+             "description": "Essential setup"},
+            {"id": "a-tier3", "name": "Architecture Review", "when": {"min_tier": 3}, "depends_on": [],
+             "description": "Review architecture design patterns"},
+            {"id": "a-tier5", "name": "Compliance Audit", "when": {"min_tier": 5}, "depends_on": [],
+             "description": "Security compliance and audit trail verification"},
+            {"id": "a-feature", "name": "Feature Planning", "when": {"types": ["feature"]}, "depends_on": [],
+             "description": "Plan feature implementation strategy"},
+            {"id": "a-always", "name": "Testing", "depends_on": [],
+             "description": "Run automated testing suite"},
+        ]
+
+    def test_required_always_in_required_list(self):
+        req, rec = recommend_activities(self._make_activities(), tier=1, item_type="bug")
+        req_ids = [a["id"] for a in req]
+        assert "a-required" in req_ids
+
+    def test_no_when_always_in_required(self):
+        req, rec = recommend_activities(self._make_activities(), tier=1, item_type="bug")
+        req_ids = [a["id"] for a in req]
+        assert "a-always" in req_ids
+
+    def test_tier_match_goes_to_recommended(self):
+        req, rec = recommend_activities(self._make_activities(), tier=3, item_type="feature")
+        rec_ids = [a["id"] for a in rec]
+        assert "a-tier3" in rec_ids
+
+    def test_tier_mismatch_excluded_unless_keywords(self):
+        req, rec = recommend_activities(self._make_activities(), tier=1, item_type="bug")
+        all_ids = [a["id"] for a in req + rec]
+        assert "a-tier3" not in all_ids
+
+    def test_keyword_match_rescues_excluded_activity(self):
+        """If description mentions architecture, a-tier3 gets recommended even at tier 1."""
+        req, rec = recommend_activities(
+            self._make_activities(), tier=1, item_type="bug",
+            description="Fix architecture design patterns in the auth module",
+        )
+        rec_ids = [a["id"] for a in rec]
+        assert "a-tier3" in rec_ids
+
+    def test_extra_keywords_match(self):
+        req, rec = recommend_activities(
+            self._make_activities(), tier=1, item_type="bug",
+            keywords=["compliance"],
+        )
+        rec_ids = [a["id"] for a in rec]
+        assert "a-tier5" in rec_ids
+
+    def test_type_mismatch_excluded_unless_keywords(self):
+        req, rec = recommend_activities(
+            self._make_activities(), tier=3, item_type="bug",
+        )
+        all_ids = [a["id"] for a in req + rec]
+        assert "a-feature" not in all_ids
+
+    def test_tier_1_bug_minimal(self):
+        req, rec = recommend_activities(self._make_activities(), tier=1, item_type="bug")
+        assert len(req) == 2  # a-required + a-always
+        assert len(rec) == 0
+
+    def test_tier_5_feature_maximal(self):
+        req, rec = recommend_activities(self._make_activities(), tier=5, item_type="feature")
+        total = len(req) + len(rec)
+        assert total == 5  # All activities
+
+
+class TestBuildActivityConfirmation:
+    def test_produces_valid_payload(self):
+        required = [{"id": "r1", "name": "Required One"}]
+        recommended = [
+            {"id": "a1", "name": "Optional One", "description": "First optional"},
+            {"id": "a2", "name": "Optional Two", "description": "Second optional"},
+        ]
+        payload = build_activity_confirmation(required, recommended, "research")
+        assert "questions" in payload
+        q = payload["questions"][0]
+        assert q["multiSelect"] is True
+        assert len(q["options"]) == 2
+
+    def test_mentions_required_in_question(self):
+        required = [{"id": "r1", "name": "Problem Statement"}]
+        recommended = [{"id": "a1", "name": "Domain Survey", "description": "Explore domain"}]
+        payload = build_activity_confirmation(required, recommended, "research")
+        q = payload["questions"][0]["question"]
+        assert "Problem Statement" in q
+
+    def test_empty_recommended_still_valid(self):
+        required = [{"id": "r1", "name": "Only Required"}]
+        payload = build_activity_confirmation(required, [], "plan")
+        assert "questions" in payload
+        assert len(payload["questions"][0]["options"]) >= 2
+
+    def test_max_four_options(self):
+        recommended = [
+            {"id": f"a{i}", "name": f"Act {i}", "description": f"Desc {i}"}
+            for i in range(6)
+        ]
+        payload = build_activity_confirmation([], recommended, "analysis")
+        assert len(payload["questions"][0]["options"]) <= 4
 
 
 class TestComputeActivityWaves:

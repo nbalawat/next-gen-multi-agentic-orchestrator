@@ -3,6 +3,7 @@ activities:
   - id: domain-survey
     name: Domain Survey
     description: Explore the problem domain, existing solutions, and industry context
+    when: {min_tier: 3}
     inputs:
       - {name: project_description, type: text, source: user}
     outputs:
@@ -14,6 +15,7 @@ activities:
   - id: constraint-mapping
     name: Constraint Mapping
     description: Identify budget, timeline, technology, and compliance constraints
+    when: {min_tier: 4}
     inputs:
       - {name: project_description, type: text, source: user}
     outputs:
@@ -25,6 +27,7 @@ activities:
   - id: problem-statement
     name: Problem Statement
     description: Synthesize research into a clear, actionable problem statement
+    when: {required: true}
     depends_on: [domain-survey, constraint-mapping]
     inputs:
       - {name: domain-findings, type: markdown, from: domain-survey}
