@@ -19,17 +19,19 @@ gets a structured prompt with selectable options.
 
 ## Step 0: Display Welcome Banner & Active Projects
 
-First, show the RAPIDS welcome banner with all active managed projects:
+First, show the RAPIDS welcome banner with all workspaces and their projects:
 ```bash
 python3 -c "
 from rapids_core.ascii_art import welcome_banner
-from rapids_core.project_registry import list_projects
+from rapids_core.project_registry import list_projects, list_workspaces
 projects = list_projects()
-print(welcome_banner(projects))
+workspaces = list_workspaces()
+print(welcome_banner(projects, workspaces))
 "
 ```
 
-Display this banner output to the user so they can see what projects are already under RAPIDS management.
+Display this banner output to the user so they can see all workspaces and which
+projects are already under RAPIDS management within each workspace.
 
 ## Step 1: Ask for Workspace (AskUserQuestion)
 

@@ -10,8 +10,12 @@ from __future__ import annotations
 def workspace_question(existing_workspaces: list[dict] | None = None) -> dict:
     """Build the AskUserQuestion payload for workspace selection.
 
+    Each existing workspace option includes a preview showing the projects
+    underneath it so the user can see what's already managed.
+
     Args:
         existing_workspaces: List of registered workspace dicts from the registry.
+                             Each should have keys: name, path, projects (list of names).
 
     Returns:
         A dict with a ``questions`` key containing the AskUserQuestion payload.
@@ -21,10 +25,28 @@ def workspace_question(existing_workspaces: list[dict] | None = None) -> dict:
     if existing_workspaces:
         # Offer up to 2 existing workspaces plus "new" and "none"
         for ws in existing_workspaces[:2]:
-            proj_count = len(ws.get("projects", []))
+            proj_names = ws.get("projects", [])
+            proj_count = len(proj_names)
+            # Build a preview showing projects under this workspace
+            preview_lines = [
+                f"┌─ {ws['name']}",
+                f"│  Path: {ws['path']}",
+                f"│  Projects: {proj_count}",
+                f"│",
+            ]
+            if proj_names:
+                for i, pname in enumerate(proj_names):
+                    branch = "└──" if i == len(proj_names) - 1 else "├──"
+                    preview_lines.append(f"│  {branch} {pname}")
+            else:
+                preview_lines.append("│  └── (no projects yet)")
+            preview_lines.append("│")
+            preview_lines.append("└─")
+
             options.append({
                 "label": f"{ws['name']} (Recommended)" if len(options) == 0 else ws["name"],
                 "description": f"Use existing workspace at {ws['path']} ({proj_count} project(s))",
+                "preview": "\n".join(preview_lines),
             })
 
     options.append({

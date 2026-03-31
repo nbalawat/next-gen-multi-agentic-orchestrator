@@ -78,11 +78,11 @@ class TestWelcomeBanner:
         result = welcome_banner()
         assert "Orchestration Framework" in result
 
-    def test_no_projects_message(self):
-        result = welcome_banner(projects=[])
-        assert "No active projects" in result
+    def test_no_projects_or_workspaces_message(self):
+        result = welcome_banner(projects=[], workspaces=[])
+        assert "No workspaces or projects" in result
 
-    def test_shows_projects(self):
+    def test_shows_flat_projects_without_workspaces(self):
         projects = [
             {
                 "name": "test-proj",
@@ -97,9 +97,42 @@ class TestWelcomeBanner:
         assert "T2" in result
         assert "plan" in result
 
-    def test_prompts_for_directory(self):
+    def test_shows_workspace_with_projects(self):
+        workspaces = [
+            {"name": "my-workspace", "path": "/tmp/ws", "projects": ["proj-a", "proj-b"]},
+        ]
+        projects = [
+            {"name": "proj-a", "path": "/tmp/ws/a", "workspace": "/tmp/ws", "tier": 3, "phase": "implement", "status": "active"},
+            {"name": "proj-b", "path": "/tmp/ws/b", "workspace": "/tmp/ws", "tier": 1, "phase": "implement", "status": "active"},
+        ]
+        result = welcome_banner(projects, workspaces)
+        assert "my-workspace" in result
+        assert "proj-a" in result
+        assert "proj-b" in result
+
+    def test_shows_empty_workspace(self):
+        workspaces = [
+            {"name": "empty-ws", "path": "/tmp/empty", "projects": []},
+        ]
+        result = welcome_banner(projects=[], workspaces=workspaces)
+        assert "empty-ws" in result
+        assert "no projects yet" in result
+
+    def test_shows_standalone_projects_separately(self):
+        workspaces = [
+            {"name": "ws", "path": "/tmp/ws", "projects": ["proj-a"]},
+        ]
+        projects = [
+            {"name": "proj-a", "path": "/tmp/ws/a", "workspace": "/tmp/ws", "tier": 2, "phase": "plan", "status": "active"},
+            {"name": "standalone", "path": "/tmp/other", "tier": 1, "phase": "implement", "status": "active"},
+        ]
+        result = welcome_banner(projects, workspaces)
+        assert "Standalone" in result
+        assert "standalone" in result
+
+    def test_prompts_for_workspace(self):
         result = welcome_banner()
-        assert "working directory" in result
+        assert "workspace" in result.lower()
 
 
 class TestTransitionBanner:

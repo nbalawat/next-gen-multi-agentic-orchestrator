@@ -85,6 +85,21 @@ class TestWorkspaceQuestion:
         assert "my-ws" in first["label"]
         assert "Recommended" in first["label"]
 
+    def test_existing_workspace_has_preview_with_projects(self):
+        workspaces = [{"name": "my-ws", "path": "/tmp/ws", "projects": ["proj-a", "proj-b"]}]
+        payload = workspace_question(workspaces)
+        first = payload["questions"][0]["options"][0]
+        assert "preview" in first
+        assert "proj-a" in first["preview"]
+        assert "proj-b" in first["preview"]
+
+    def test_empty_workspace_preview_shows_no_projects(self):
+        workspaces = [{"name": "empty-ws", "path": "/tmp/ws", "projects": []}]
+        payload = workspace_question(workspaces)
+        first = payload["questions"][0]["options"][0]
+        assert "preview" in first
+        assert "no projects yet" in first["preview"]
+
     def test_max_four_options(self):
         workspaces = [
             {"name": f"ws-{i}", "path": f"/tmp/ws{i}", "projects": []}

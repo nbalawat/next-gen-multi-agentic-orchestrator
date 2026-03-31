@@ -205,14 +205,18 @@ def phase_banner(
     return "\n".join(lines) + "\n"
 
 
-def welcome_banner(projects: list[dict] | None = None) -> str:
-    """Generate the welcome screen shown on `rapid start`.
+def welcome_banner(
+    projects: list[dict] | None = None,
+    workspaces: list[dict] | None = None,
+) -> str:
+    """Generate the welcome screen shown on ``rapid start``.
 
     Args:
         projects: List of active project dicts (from project registry).
+        workspaces: List of workspace dicts (from project registry).
 
     Returns:
-        Multi-line ASCII art string with logo and project listing.
+        Multi-line ASCII art string with logo and workspace/project listing.
     """
     w = 78
     border_top = "╔" + "═" * w + "╗"
@@ -246,35 +250,97 @@ def welcome_banner(projects: list[dict] | None = None) -> str:
     lines.append(pad(""))
     lines.append(border_thin)
 
-    # Active projects section
+    # Workspaces & Projects section
     lines.append(pad(""))
-    lines.append(pad("  MANAGED PROJECTS"))
-    lines.append(pad("  ────────────────"))
+    lines.append(pad("  WORKSPACES & PROJECTS"))
+    lines.append(pad("  ─────────────────────"))
     lines.append(pad(""))
 
-    if projects:
-        # Header
+    has_content = False
+
+    if workspaces:
+        # Group projects by workspace
+        projects_by_ws: dict[str, list[dict]] = {}
+        standalone: list[dict] = []
+
+        if projects:
+            for p in projects:
+                ws = p.get("workspace")
+                if ws:
+                    projects_by_ws.setdefault(ws, []).append(p)
+                else:
+                    standalone.append(p)
+
+        for ws in workspaces:
+            ws_path = ws["path"]
+            ws_name = ws["name"]
+            ws_projs = projects_by_ws.get(ws_path, [])
+            proj_count = len(ws_projs)
+            has_content = True
+
+            lines.append(pad(f"  ┌─ Workspace: {ws_name}"))
+            lines.append(pad(f"  │  Path: {ws_path}"))
+            lines.append(pad(f"  │  Projects: {proj_count}"))
+            lines.append(pad(f"  │"))
+
+            if ws_projs:
+                for i, p in enumerate(ws_projs):
+                    is_last = i == len(ws_projs) - 1
+                    branch = "└──" if is_last else "├──"
+                    status_icon = "●" if p.get("status") == "active" else "○"
+                    name = p["name"][:20]
+                    phase = p.get("phase", "?")
+                    tier = p.get("tier", 0)
+                    lines.append(pad(
+                        f"  │  {branch} {status_icon} {name:<20} T{tier}  {phase}"
+                    ))
+            else:
+                lines.append(pad(f"  │  └── (no projects yet)"))
+
+            lines.append(pad(f"  │"))
+            lines.append(pad(f"  └─"))
+            lines.append(pad(""))
+
+        # Show standalone projects (not in any workspace)
+        if standalone:
+            lines.append(pad("  Standalone Projects (no workspace):"))
+            for p in standalone:
+                status_icon = "●" if p.get("status") == "active" else "○"
+                name = p["name"][:20]
+                phase = p.get("phase", "?")
+                tier = p.get("tier", 0)
+                path = p["path"]
+                if len(path) > 30:
+                    path = "..." + path[-27:]
+                lines.append(pad(f"    {status_icon} {name:<20} T{tier}  {phase:<12} {path}"))
+            lines.append(pad(""))
+            has_content = True
+
+    elif projects:
+        # No workspaces registered, just show flat project list
+        has_content = True
         lines.append(pad(f"  {'#':<4} {'PROJECT':<20} {'TIER':<8} {'PHASE':<14} {'STATUS':<10} DIRECTORY"))
         lines.append(pad("  " + "─" * 72))
         for i, p in enumerate(projects, 1):
             status_icon = "●" if p.get("status") == "active" else "○"
             name = p["name"][:18]
             path = p["path"]
-            # Truncate path if too long
             if len(path) > 28:
                 path = "..." + path[-25:]
             line = f"  {i:<4} {name:<20} T{p['tier']:<7} {p['phase']:<14} {status_icon} {p.get('status','?'):<8} {path}"
             lines.append(pad(line))
         lines.append(pad(""))
-    else:
-        lines.append(pad("  No active projects. Let's start one!"))
+
+    if not has_content:
+        lines.append(pad("  No workspaces or projects yet. Let's set one up!"))
         lines.append(pad(""))
 
     lines.append(border_thin)
     lines.append(pad(""))
-    lines.append(pad("  To begin, provide:"))
-    lines.append(pad("    1. The working directory for your project"))
-    lines.append(pad("    2. A description of what you want to build"))
+    lines.append(pad("  To begin, you'll be asked to:"))
+    lines.append(pad("    1. Select or create a workspace"))
+    lines.append(pad("    2. Specify the project working directory"))
+    lines.append(pad("    3. Describe what you want to build"))
     lines.append(pad(""))
     lines.append(border_bot)
 
