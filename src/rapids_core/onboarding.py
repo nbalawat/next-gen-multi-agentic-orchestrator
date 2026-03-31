@@ -73,24 +73,149 @@ def workspace_question(existing_workspaces: list[dict] | None = None) -> dict:
     }
 
 
-def working_directory_question(current_dir: str = ".", workspace_path: str | None = None) -> dict:
-    """Build the AskUserQuestion payload for the working directory prompt.
+def project_selection_question(
+    workspace_projects: list[dict] | None = None,
+    workspace_path: str = "",
+) -> dict:
+    """Build the AskUserQuestion payload for project selection within a workspace.
+
+    When a workspace has existing projects, the user can pick one to resume
+    or create a new one. This replaces the old working_directory_question
+    when a workspace is selected.
 
     Args:
-        current_dir: The current working directory to offer as an option.
-        workspace_path: If set, the project directory will be created under this workspace.
+        workspace_projects: List of project dicts in this workspace.
+        workspace_path: Path of the selected workspace.
 
     Returns:
         A dict with a ``questions`` key containing the AskUserQuestion payload.
     """
-    context = ""
-    if workspace_path:
-        context = f" (under workspace: {workspace_path})"
+    options = []
+
+    # Show existing projects first (up to 3)
+    if workspace_projects:
+        for proj in workspace_projects[:3]:
+            status_icon = "●" if proj.get("status") == "active" else "○"
+            phase = proj.get("phase", "?")
+            tier = proj.get("tier", 0)
+            options.append({
+                "label": proj["name"],
+                "description": (
+                    f"{status_icon} T{tier} — {phase} phase | "
+                    f"Path: {proj['path']}"
+                ),
+                "preview": _project_preview(proj),
+            })
+
+    # Always offer "Create new project"
+    options.append({
+        "label": "Create new project" + (" (Recommended)" if not workspace_projects else ""),
+        "description": f"Start a new project in workspace {workspace_path}",
+    })
+
+    # Ensure minimum 2 options (AskUserQuestion schema requires 2-4)
+    if len(options) < 2:
+        options.append({
+            "label": "Use current directory",
+            "description": "Use the current working directory as a new project in this workspace",
+        })
+
+    # Clamp to 4 options
+    options = options[:4]
 
     return {
         "questions": [
             {
-                "question": f"What is the working directory for this project{context}?",
+                "question": (
+                    f"Select an existing project or create a new one "
+                    f"in workspace {workspace_path}?"
+                    if workspace_projects
+                    else f"No projects in this workspace yet. Create one?"
+                ),
+                "header": "Project",
+                "multiSelect": False,
+                "options": options,
+            }
+        ]
+    }
+
+
+def _project_preview(proj: dict) -> str:
+    """Build a preview box for an existing project."""
+    status = proj.get("status", "unknown")
+    phase = proj.get("phase", "?")
+    tier = proj.get("tier", 0)
+    path = proj.get("path", "")
+
+    tier_labels = {1: "Bug Fix", 2: "Enhancement", 3: "Feature", 4: "System", 5: "Platform"}
+    tier_label = tier_labels.get(tier, "Unknown")
+
+    lines = [
+        f"┌─────────────────────────────────────┐",
+        f"│  Project: {proj['name']:<26}│",
+        f"├─────────────────────────────────────┤",
+        f"│  Status:  {status:<26}│",
+        f"│  Tier:    {tier} — {tier_label:<21}│",
+        f"│  Phase:   {phase:<26}│",
+        f"│  Path:    {path[:26]:<26}│",
+        f"└─────────────────────────────────────┘",
+    ]
+    return "\n".join(lines)
+
+
+def new_project_directory_question(workspace_path: str) -> dict:
+    """Build the AskUserQuestion payload for naming a new project within a workspace.
+
+    Args:
+        workspace_path: The workspace directory. New project is created underneath.
+
+    Returns:
+        A dict with a ``questions`` key containing the AskUserQuestion payload.
+    """
+    return {
+        "questions": [
+            {
+                "question": (
+                    f"What should the new project directory be called? "
+                    f"It will be created under {workspace_path}."
+                ),
+                "header": "New project",
+                "multiSelect": False,
+                "options": [
+                    {
+                        "label": "Type a name",
+                        "description": (
+                            f"Enter a project name (e.g., 'payment-service'). "
+                            f"Directory created at {workspace_path}/<name>"
+                        ),
+                    },
+                    {
+                        "label": "Use current directory",
+                        "description": "Use the current working directory as the project root",
+                    },
+                ],
+            }
+        ]
+    }
+
+
+def working_directory_question(current_dir: str = ".", workspace_path: str | None = None) -> dict:
+    """Build the AskUserQuestion payload for working directory (standalone, no workspace).
+
+    Only used when the user chose "No workspace" — for workspace projects,
+    use :func:`project_selection_question` and :func:`new_project_directory_question` instead.
+
+    Args:
+        current_dir: The current working directory to offer as an option.
+        workspace_path: Deprecated — use project_selection_question for workspace flows.
+
+    Returns:
+        A dict with a ``questions`` key containing the AskUserQuestion payload.
+    """
+    return {
+        "questions": [
+            {
+                "question": "What is the working directory for this standalone project?",
                 "header": "Directory",
                 "multiSelect": False,
                 "options": [
@@ -104,11 +229,7 @@ def working_directory_question(current_dir: str = ".", workspace_path: str | Non
                     },
                     {
                         "label": "Create new directory",
-                        "description": (
-                            f"Specify a directory name — created under {workspace_path}"
-                            if workspace_path
-                            else "Specify a path and RAPIDS will create it for you"
-                        ),
+                        "description": "Specify a path and RAPIDS will create it for you",
                     },
                 ],
             }

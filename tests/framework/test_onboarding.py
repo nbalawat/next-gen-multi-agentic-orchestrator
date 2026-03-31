@@ -10,6 +10,8 @@ import pytest
 
 from rapids_core.onboarding import (
     workspace_question,
+    project_selection_question,
+    new_project_directory_question,
     working_directory_question,
     scope_confirmation_question,
     execution_mode_question,
@@ -114,7 +116,78 @@ class TestWorkspaceQuestion:
         assert any("No workspace" in l for l in labels)
 
 
-# ─── Working Directory Question ──────────────────────────────────────────────
+# ─── Project Selection Question ───────────────────────────────────────────────
+
+class TestProjectSelectionQuestion:
+    def test_schema_valid_no_projects(self):
+        payload = project_selection_question([], "/tmp/ws")
+        _validate_ask_user_question_payload(payload)
+
+    def test_schema_valid_with_projects(self):
+        projects = [
+            {"name": "proj-a", "path": "/tmp/ws/a", "tier": 3, "phase": "implement", "status": "active"},
+        ]
+        payload = project_selection_question(projects, "/tmp/ws")
+        _validate_ask_user_question_payload(payload)
+
+    def test_existing_projects_listed_as_options(self):
+        projects = [
+            {"name": "proj-a", "path": "/tmp/ws/a", "tier": 3, "phase": "implement", "status": "active"},
+            {"name": "proj-b", "path": "/tmp/ws/b", "tier": 1, "phase": "plan", "status": "active"},
+        ]
+        payload = project_selection_question(projects, "/tmp/ws")
+        labels = [opt["label"] for opt in payload["questions"][0]["options"]]
+        assert "proj-a" in labels
+        assert "proj-b" in labels
+
+    def test_create_new_always_present(self):
+        projects = [
+            {"name": "proj-a", "path": "/tmp/ws/a", "tier": 2, "phase": "plan", "status": "active"},
+        ]
+        payload = project_selection_question(projects, "/tmp/ws")
+        labels = [opt["label"] for opt in payload["questions"][0]["options"]]
+        assert any("Create new" in l for l in labels)
+
+    def test_create_new_recommended_when_no_projects(self):
+        payload = project_selection_question([], "/tmp/ws")
+        first = payload["questions"][0]["options"][0]
+        assert "Create new" in first["label"]
+        assert "Recommended" in first["label"]
+
+    def test_existing_projects_have_previews(self):
+        projects = [
+            {"name": "proj-a", "path": "/tmp/ws/a", "tier": 3, "phase": "implement", "status": "active"},
+        ]
+        payload = project_selection_question(projects, "/tmp/ws")
+        first = payload["questions"][0]["options"][0]
+        assert "preview" in first
+        assert "proj-a" in first["preview"]
+
+    def test_max_four_options(self):
+        projects = [
+            {"name": f"p{i}", "path": f"/tmp/ws/p{i}", "tier": 1, "phase": "implement", "status": "active"}
+            for i in range(5)
+        ]
+        payload = project_selection_question(projects, "/tmp/ws")
+        assert len(payload["questions"][0]["options"]) <= 4
+
+
+class TestNewProjectDirectoryQuestion:
+    def test_schema_valid(self):
+        payload = new_project_directory_question("/tmp/ws")
+        _validate_ask_user_question_payload(payload)
+
+    def test_includes_workspace_path(self):
+        payload = new_project_directory_question("/tmp/my-workspace")
+        q = payload["questions"][0]["question"]
+        assert "/tmp/my-workspace" in q
+
+    def test_has_two_options(self):
+        payload = new_project_directory_question("/tmp/ws")
+        assert len(payload["questions"][0]["options"]) == 2
+
+
+# ─── Working Directory Question (standalone) ─────────────────────────────────
 
 class TestWorkingDirectoryQuestion:
     def test_schema_valid(self):
@@ -148,15 +221,10 @@ class TestWorkingDirectoryQuestion:
         payload = working_directory_question()
         assert payload["questions"][0]["multiSelect"] is False
 
-    def test_workspace_context_in_question(self):
-        payload = working_directory_question("/tmp", workspace_path="/tmp/my-workspace")
+    def test_standalone_label_in_question(self):
+        payload = working_directory_question("/tmp")
         q = payload["questions"][0]["question"]
-        assert "my-workspace" in q
-
-    def test_workspace_context_in_create_option(self):
-        payload = working_directory_question("/tmp", workspace_path="/tmp/ws")
-        create_opt = payload["questions"][0]["options"][2]
-        assert "/tmp/ws" in create_opt["description"]
+        assert "standalone" in q
 
 
 # ─── Scope Confirmation Question ──────────────────────────────────────────────

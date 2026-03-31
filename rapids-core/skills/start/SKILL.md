@@ -55,38 +55,52 @@ Call `AskUserQuestion` with the generated payload. Based on the response:
   register it via `project-registry.sh register-workspace`
 - If they chose "No workspace" → the project is standalone (no workspace association)
 
-## Step 2: Ask for Working Directory (AskUserQuestion)
+## Step 2: Select Project or Create New (AskUserQuestion)
 
-Use the `AskUserQuestion` tool to ask the user for the project working directory.
+**This step depends on what was chosen in Step 1.**
 
-Call `AskUserQuestion` with these parameters:
-```json
-{
-  "questions": [
-    {
-      "question": "What is the working directory for this project?",
-      "header": "Directory",
-      "multiSelect": false,
-      "options": [
-        {
-          "label": "Current directory (Recommended)",
-          "description": "Use the current directory: <current_working_directory>"
-        },
-        {
-          "label": "Existing directory",
-          "description": "Provide a path to an existing project directory"
-        },
-        {
-          "label": "Create new directory",
-          "description": "Specify a path and RAPIDS will create it for you"
-        }
-      ]
-    }
-  ]
-}
+### If a workspace was selected:
+
+Show the user the existing projects in that workspace so they can pick one
+to **resume**, or create a **new project**:
+
+```bash
+python3 -c "
+import json
+from rapids_core.onboarding import project_selection_question
+from rapids_core.project_registry import get_workspace_projects
+workspace_path = '<selected_workspace_path>'
+projects = get_workspace_projects(workspace_path)
+print(json.dumps(project_selection_question(projects, workspace_path), indent=2))
+"
 ```
 
-You can generate this payload programmatically:
+Call `AskUserQuestion` with the generated payload. Based on the response:
+- If they selected an **existing project** → `cd` into that project's directory,
+  load its `.rapids/rapids.json`, and show the current phase banner. The user is
+  resuming this project — skip to Step 10 (display summary) and suggest
+  `/rapids-core:go` to continue.
+- If they chose **"Create new project"** → proceed to Step 2b below.
+
+### Step 2b: Name the new project (AskUserQuestion)
+
+If creating a new project inside a workspace, ask for the directory name:
+
+```bash
+python3 -c "
+import json
+from rapids_core.onboarding import new_project_directory_question
+print(json.dumps(new_project_directory_question('<workspace_path>'), indent=2))
+"
+```
+
+The user will type a project name (e.g., `payment-service`). Create the directory
+at `<workspace_path>/<project_name>` with `mkdir -p` and `cd` into it.
+
+### If "No workspace" was selected:
+
+Show the standalone directory question:
+
 ```bash
 python3 -c "
 import json
@@ -102,6 +116,8 @@ print(json.dumps(working_directory_question('$(pwd)'), indent=2))
 - Once confirmed, `cd` into that directory for all subsequent operations
 
 ## Step 3: Ask What to Build (AskUserQuestion)
+
+**Skip this step if the user selected an existing project in Step 2 (they're resuming).**
 
 If the user hasn't already described their project, use `AskUserQuestion` to ask:
 
@@ -327,7 +343,8 @@ Tell the user:
 - Next step: run `/rapids-core:go` to begin the first phase
 
 ## Rules
-- **MUST use `AskUserQuestion` tool** for Steps 1, 2, 3, 5, and 6 — never just print the question
+- **MUST use `AskUserQuestion` tool** for Steps 1, 2, 2b, 3, 5, and 6 — never just print the question
+- If the user picks an existing project in Step 2, skip Steps 3-9 and go straight to Step 11 (resume)
 - For Tier 4-5, the recommended execution mode is Human-in-the-loop
 - For Tier 1-2, the recommended execution mode is Autonomous
 - Always register the project in the central registry
