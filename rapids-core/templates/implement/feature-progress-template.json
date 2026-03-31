@@ -1,0 +1,16 @@
+{
+  "feature_id": "F00N",
+  "status": "not_started",
+  "acceptance_criteria": [
+    {
+      "criterion": "Description of criterion",
+      "status": "pending",
+      "tests": [],
+      "commits": []
+    }
+  ],
+  "started_at": null,
+  "completed_at": null,
+  "evaluator_verdict": null,
+  "retry_count": 0
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RAPIDS Dependency Graph",
+  "description": "Defines feature dependencies and implementation wave ordering",
+  "type": "object",
+  "required": ["features", "dependencies"],
+  "properties": {
+    "features": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "List of feature IDs"
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "description": "Map of feature ID to list of feature IDs it depends on"
+    },
+    "waves": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["wave", "features"],
+        "properties": {
+          "wave": { "type": "integer", "minimum": 1 },
+          "features": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "description": "Computed implementation waves (populated by wave computer)"
+    }
+  }
+}

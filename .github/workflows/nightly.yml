@@ -1,0 +1,27 @@
+name: RAPIDS Framework Nightly
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  full-framework-suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get install -y jq
+      - run: pip install -e ".[dev,smoke]"
+      - name: F1 - Pure logic tests
+        run: pytest tests/framework/test_*.py -v
+      - name: F2 - Hook integration tests
+        run: bash tests/framework/hooks/run_all_hook_tests.sh
+      - name: F3 - Replay tests
+        run: pytest tests/framework/test_replay.py -v
+      - name: F4 - LLM smoke tests
+        run: pytest tests/framework/smoke/ -v
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

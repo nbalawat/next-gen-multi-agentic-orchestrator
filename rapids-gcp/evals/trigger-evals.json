@@ -1,0 +1,30 @@
+{
+  "name": "rapids-gcp-trigger-precision",
+  "description": "Test cases to verify that skills trigger at the correct RAPIDS phase",
+  "testCases": [
+    {
+      "id": "trigger-architecture-on-analysis",
+      "input": "We need to design a new GCP architecture for our e-commerce platform. What services should we use?",
+      "expectedSkill": "gcp-architecture",
+      "expectedPhase": "analysis",
+      "shouldTrigger": true,
+      "notes": "Architecture design questions should activate gcp-architecture during analysis phase"
+    },
+    {
+      "id": "trigger-terraform-on-implement",
+      "input": "Write the Terraform module for the VPC network we designed in the architecture doc",
+      "expectedSkill": "terraform-authoring",
+      "expectedPhase": "implement",
+      "shouldTrigger": true,
+      "notes": "Terraform code writing requests should activate terraform-authoring during implement phase"
+    },
+    {
+      "id": "no-trigger-on-unrelated",
+      "input": "How do I write a Python function to sort a list?",
+      "expectedSkill": null,
+      "expectedPhase": null,
+      "shouldTrigger": false,
+      "notes": "General programming questions unrelated to GCP should not trigger any rapids-gcp skill"
+    }
+  ]
+}

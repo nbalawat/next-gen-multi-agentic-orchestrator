@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    {
+      "event": "WorktreeCreate",
+      "script": "hooks/scripts/gcp-worktree-setup.sh",
+      "description": "Initialize GCP environment variables and start emulators in new worktrees"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "rapids_core_version": ">=1.0.0",
+  "capabilities": {
+    "implement": [
+      {
+        "id": "DOMAIN-implement",
+        "description": "Implementation guidance for DOMAIN projects"
+      }
+    ]
+  },
+  "config": {},
+  "test_infrastructure": {
+    "services": []
+  }
+}

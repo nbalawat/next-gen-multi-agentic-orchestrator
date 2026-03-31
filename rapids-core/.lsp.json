@@ -1,0 +1,17 @@
+{
+  "python": {
+    "command": "pylsp",
+    "args": [],
+    "extensionToLanguage": {
+      ".py": "python"
+    }
+  },
+  "typescript": {
+    "command": "typescript-language-server",
+    "args": ["--stdio"],
+    "extensionToLanguage": {
+      ".ts": "typescript",
+      ".tsx": "typescriptreact"
+    }
+  }
+}

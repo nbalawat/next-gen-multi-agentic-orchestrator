@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "rapids-events": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/rapids-event-server.js"],
+      "description": "Receives webhook events from CI/CD and monitoring systems for event-driven Deploy and Sustain phases"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+<feature id="F00N" version="1.0" priority="high" depends_on="" plugin="">
+    <n>Feature Name</n>
+    <description>
+        Clear description of the feature and what it accomplishes.
+    </description>
+    <acceptance_criteria>
+        <criterion>First testable acceptance criterion</criterion>
+        <criterion>Second testable acceptance criterion</criterion>
+    </acceptance_criteria>
+    <estimated_complexity>M</estimated_complexity>
+</feature>

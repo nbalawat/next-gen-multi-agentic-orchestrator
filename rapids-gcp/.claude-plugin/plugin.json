@@ -1,0 +1,7 @@
+{
+  "name": "rapids-gcp",
+  "version": "1.0.0",
+  "description": "GCP architecture, Terraform, and deployment for RAPIDS projects",
+  "author": { "name": "RAPIDS" },
+  "keywords": ["rapids", "gcp", "terraform", "cloud-architecture"]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "rapids-marketplace",
+  "description": "RAPIDS orchestration plugins for AI-assisted software delivery",
+  "plugins": {
+    "rapids-core": {
+      "description": "Core RAPIDS orchestration engine — phases, scope tiers, wave execution, Generator-Evaluator pattern",
+      "source": { "type": "git", "url": "https://github.com/your-org/rapids-core" },
+      "version": "1.0.0"
+    },
+    "rapids-gcp": {
+      "description": "GCP architecture, Terraform, Cloud Run deployment, and monitoring",
+      "source": { "type": "git", "url": "https://github.com/your-org/rapids-gcp" },
+      "version": "1.0.0"
+    },
+    "rapids-react": {
+      "description": "React frontend design, component implementation, and Playwright testing",
+      "source": { "type": "git", "url": "https://github.com/your-org/rapids-react" },
+      "version": "1.0.0"
+    }
+  }
+}

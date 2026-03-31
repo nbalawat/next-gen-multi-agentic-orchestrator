@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="feature">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="n" type="xs:string"/>
+        <xs:element name="description" type="xs:string"/>
+        <xs:element name="acceptance_criteria">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="criterion" type="xs:string" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="estimated_complexity" minOccurs="0">
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="S"/>
+              <xs:enumeration value="M"/>
+              <xs:enumeration value="L"/>
+              <xs:enumeration value="XL"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:string" use="required"/>
+      <xs:attribute name="version" type="xs:string" use="required"/>
+      <xs:attribute name="priority" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="low"/>
+            <xs:enumeration value="medium"/>
+            <xs:enumeration value="high"/>
+            <xs:enumeration value="critical"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="depends_on" type="xs:string" use="optional" default=""/>
+      <xs:attribute name="plugin" type="xs:string" use="optional"/>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>

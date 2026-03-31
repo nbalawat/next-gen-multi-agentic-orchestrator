@@ -1,0 +1,9 @@
+{
+  "env": {
+    "RAPIDS_CORE_VERSION": "1.0.0",
+    "RAPIDS_ARTIFACTS_DIR": ".rapids",
+    "RAPIDS_AUDIT_DIR": ".rapids/audit",
+    "RAPIDS_PHASES_DIR": ".rapids/phases",
+    "RAPIDS_CONTEXT_DIR": ".rapids/context"
+  }
+}

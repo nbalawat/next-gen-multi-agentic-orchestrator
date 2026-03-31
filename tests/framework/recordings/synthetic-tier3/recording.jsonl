@@ -1,0 +1,10 @@
+{"step":1,"type":"onboard","input":{"description":"Build payment dashboard with Bigtable","files_impacted":15,"new_infrastructure":false,"integrations":["bigtable","react-dashboard"],"domain_complexity":"moderate"},"output":{"tier":3,"plugins":["rapids-gcp","rapids-react"]}}
+{"step":2,"type":"hook","event":"SessionStart","input":{"source":"startup","cwd":"/test"},"output":{"claude_md_lines":30}}
+{"step":3,"type":"phase_enter","phase":"analysis","input":{},"output":{}}
+{"step":4,"type":"artifact_created","path":"phases/analysis/solution-design.md","input":{},"output":{"validation":"pass"}}
+{"step":5,"type":"hook","event":"PostToolUse","input":{"tool_name":"Write","tool_input":{"path":".rapids/phases/analysis/solution-design.md"}},"output":{"cost_logged":true,"timeline_logged":true}}
+{"step":6,"type":"phase_gate","phase":"analysis","input":{},"output":{"decision":"approved"}}
+{"step":7,"type":"phase_transition","phase":"plan","input":{"from":"analysis","to":"plan"},"output":{}}
+{"step":8,"type":"hook","event":"SessionStart","input":{"source":"startup","cwd":"/test"},"output":{"claude_md_lines":28}}
+{"step":9,"type":"wave_computation","input":{"features":["F001","F002","F003"],"dependencies":{"F002":["F001"]}},"output":{"waves":[["F001","F003"],["F002"]]}}
+{"step":10,"type":"phase_transition","phase":"implement","input":{"from":"plan","to":"implement"},"output":{}}

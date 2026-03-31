@@ -1,0 +1,7 @@
+{
+  "synthetic": true,
+  "description": "Hand-crafted Tier 3 payment dashboard recording for initial testing",
+  "created": "2026-03-30",
+  "tier": 3,
+  "framework_version": "0.1.0"
+}

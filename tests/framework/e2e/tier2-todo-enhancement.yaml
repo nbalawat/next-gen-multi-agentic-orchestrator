@@ -1,0 +1,33 @@
+name: "Todo API Enhancement — Tier 2"
+description: "Add due_date field to existing Todo API. Validates full RAPIDS cycle."
+budget: "$5 max"
+model_cap: "sonnet"
+
+setup:
+  codebase: fixtures/todo-api/
+  plugins: [rapids-core]
+
+steps:
+  - action: "/rapids-core:start Add a due_date field to todos with validation"
+    expect:
+      - rapids_json_created: true
+      - tier: 2
+      - phases: ["plan", "implement"]
+
+  - action: "/rapids-core:go"
+    expect:
+      - artifacts_created: [".rapids/phases/plan/features/*.xml"]
+      - dependency_graph_created: true
+
+  - action: "/rapids-core:go"
+    gate_responses: { plan: "approve" }
+    expect:
+      - worktrees_created: true
+      - feature_progress_files_created: true
+
+  - action: "wait_for_completion"
+    timeout: 15m
+    expect:
+      - all_features_complete: true
+      - tests_pass: true
+      - cost_under: 5.00

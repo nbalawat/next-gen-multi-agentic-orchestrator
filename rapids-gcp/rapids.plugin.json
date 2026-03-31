@@ -1,0 +1,44 @@
+{
+  "name": "rapids-gcp",
+  "version": "1.0.0",
+  "description": "GCP architecture, Terraform, and deployment for RAPIDS projects",
+  "capabilities": {
+    "analysis": {
+      "skill": "gcp-architecture-design",
+      "description": "Analyze requirements and design GCP architecture including service selection, IAM, networking, and cost estimation"
+    },
+    "implement": {
+      "skill": "terraform-authoring",
+      "description": "Author Terraform modules and configurations to implement the designed GCP architecture"
+    },
+    "deploy": {
+      "skill": "gcp-deploy",
+      "description": "Deploy infrastructure via Terraform apply and Cloud Run deployments to GCP"
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "project_id": {
+        "type": "string",
+        "description": "GCP project ID for deployment"
+      },
+      "region": {
+        "type": "string",
+        "default": "us-central1",
+        "description": "GCP region for resource provisioning"
+      }
+    },
+    "required": ["project_id"]
+  },
+  "testInfrastructure": {
+    "emulators": [
+      {
+        "name": "bigtable-emulator",
+        "command": "gcloud beta emulators bigtable start",
+        "port": 8086,
+        "description": "Google Cloud Bigtable emulator for local development and testing"
+      }
+    ]
+  }
+}

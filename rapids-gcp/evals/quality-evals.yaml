@@ -1,0 +1,51 @@
+name: rapids-gcp-quality
+description: Quality evaluation specs for rapids-gcp skill outputs
+
+evals:
+  - id: architecture-completeness
+    skill: gcp-architecture
+    description: Verify that architecture output covers all required sections
+    input: |
+      Design a GCP architecture for a web application with:
+      - REST API backend
+      - PostgreSQL database
+      - File storage for user uploads
+      - Authentication via Google Identity Platform
+    assertions:
+      - type: contains_section
+        value: "Service Selection"
+        message: "Architecture must include service selection table"
+      - type: contains_section
+        value: "IAM Design"
+        message: "Architecture must include IAM design"
+      - type: contains_section
+        value: "Network Topology"
+        message: "Architecture must include network topology"
+      - type: contains_section
+        value: "Cost Estimation"
+        message: "Architecture must include cost estimation"
+      - type: mentions_service
+        values: ["Cloud Run", "Cloud SQL", "Cloud Storage"]
+        message: "Architecture should recommend appropriate managed services"
+
+  - id: terraform-module-validity
+    skill: terraform-authoring
+    description: Verify that generated Terraform code is syntactically valid and follows conventions
+    input: |
+      Write a Terraform module for a Cloud Run service with:
+      - Container image from Artifact Registry
+      - 2 min instances, 10 max instances
+      - Environment variables from Secret Manager
+      - Custom domain mapping
+    assertions:
+      - type: terraform_valid
+        message: "Generated Terraform must pass terraform validate"
+      - type: contains_block
+        value: "resource \"google_cloud_run_v2_service\""
+        message: "Must use google_cloud_run_v2_service resource"
+      - type: has_variables
+        values: ["project_id", "region"]
+        message: "Must include project_id and region variables"
+      - type: has_outputs
+        min_count: 1
+        message: "Must include at least one output (e.g., service URL)"

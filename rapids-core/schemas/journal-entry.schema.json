@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RAPIDS Journal Entry",
+  "description": "Audit trail entry for RAPIDS session events",
+  "type": "object",
+  "required": ["ts", "event", "phase"],
+  "properties": {
+    "ts": {
+      "type": "string",
+      "description": "ISO 8601 timestamp"
+    },
+    "event": {
+      "type": "string",
+      "description": "Event type (e.g., phase_enter, phase_exit, artifact_created, gate_decision)"
+    },
+    "phase": {
+      "type": "string",
+      "description": "Current RAPIDS phase"
+    },
+    "feature": {
+      "type": "string",
+      "description": "Feature ID if applicable"
+    },
+    "details": {
+      "type": "object",
+      "description": "Additional event-specific details"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Claude Code session identifier"
+    }
+  }
+}
