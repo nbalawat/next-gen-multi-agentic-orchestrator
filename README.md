@@ -71,10 +71,11 @@ src/rapids_core/                # Python framework logic
 ├── agent_team_orchestrator.py   # Multi-agent team plans for Tier 4-5 waves
 ├── worktree_manager.py          # Git worktree lifecycle (create, merge, cleanup)
 ├── feature_progress.py          # Per-feature progress tracking across worktrees
-└── work_item_manager.py         # Concurrent work items (bugs, features, enhancements)
+├── work_item_manager.py         # Concurrent work items (bugs, features, enhancements)
+└── activity_manager.py          # YAML-defined DAG pipelines within phases
 
 tests/                          # Multi-layer test suite
-├── framework/test_*.py         # F1: 437 unit tests (zero LLM, $0)
+├── framework/test_*.py         # F1: 487 unit tests (zero LLM, $0)
 ├── framework/hooks/            # F2: 16 hook integration tests ($0)
 ├── framework/recordings/       # F3: Recorded replay tests ($0)
 ├── framework/smoke/            # F4: LLM smoke tests (~$0.05)
@@ -99,7 +100,7 @@ pip install -e ".[dev]"
 ### Run Tests
 
 ```bash
-make test          # F1: 437 unit tests (~0.3s, $0)
+make test          # F1: 487 unit tests (~0.3s, $0)
 make test-hooks    # F2: 16 hook integration tests ($0)
 make test-replay   # F3: Recorded replay tests ($0)
 make test-all      # All free tests

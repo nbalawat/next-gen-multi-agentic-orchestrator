@@ -88,9 +88,60 @@ if item:
 "
 ```
 
+## Step 1b: Load and Display Activity Checklist
+
+Load the activities for the current phase and show the checklist:
+
+```bash
+python3 -c "
+import json
+from pathlib import Path
+from rapids_core.activity_manager import load_phase_activities, format_activity_checklist, read_activity_progress
+
+config = json.loads(Path('.rapids/rapids.json').read_text())
+from rapids_core.work_item_manager import migrate_rapids_json, get_active_work_item
+config = migrate_rapids_json(config)
+item = get_active_work_item(config)
+phase = item['current_phase'] if item else 'implement'
+
+acts = load_phase_activities(phase, activities_dir='\${CLAUDE_PLUGIN_ROOT}/activities')
+
+# Read progress if it exists
+progress_file = Path(f'.rapids/phases/{phase}/activity-progress-{phase}.json')
+progress = read_activity_progress(str(progress_file)) if progress_file.exists() else None
+
+print(format_activity_checklist(acts, progress))
+"
+```
+
+If the activity progress file doesn't exist yet (first time entering this phase),
+initialize it:
+```bash
+python3 -c "
+import json
+from pathlib import Path
+from rapids_core.activity_manager import load_phase_activities, initialize_activity_progress
+
+phase = '<current_phase>'
+acts = load_phase_activities(phase, activities_dir='\${CLAUDE_PLUGIN_ROOT}/activities')
+initialize_activity_progress(phase, acts, f'.rapids/phases/{phase}')
+"
+```
+
 ## Step 2: Phase Gate Verification
 
-Before advancing, verify the current phase's deliverables exist:
+Before advancing, verify **both** artifact gates and activity gates:
+
+### Activity gates:
+```bash
+python3 -c "
+from rapids_core.activity_manager import check_phase_gate
+passed = check_phase_gate('.rapids/phases/<phase>/activity-progress-<phase>.json')
+print('Gate passed' if passed else 'Gate NOT passed — complete required activities first')
+"
+```
+
+### Artifact gates:
 
 | Phase | Required Artifacts |
 |-------|-------------------|
@@ -100,7 +151,8 @@ Before advancing, verify the current phase's deliverables exist:
 | implement | all features pass evaluator, tests pass |
 | deploy | deployment verified, smoke tests pass |
 
-If artifacts are missing, inform the user what's needed before advancing.
+If either gate fails, inform the user what's needed. Show the activity checklist
+highlighting which gate activities are still pending.
 
 ## Step 3: Confirm Phase Transition (AskUserQuestion)
 

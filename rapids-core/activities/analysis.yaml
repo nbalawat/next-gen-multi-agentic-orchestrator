@@ -1,0 +1,50 @@
+phase: analysis
+activities:
+  - id: architecture-design
+    name: Architecture Design
+    description: Design the solution architecture with component diagrams and data flow
+    inputs:
+      - {name: problem-statement, type: markdown, source: previous_phase}
+      - {name: constraints, type: markdown, source: previous_phase}
+    outputs:
+      - {name: solution-design, type: markdown, file: solution-design.md}
+    agent: rapids-lead
+    model: opus
+    gate: false
+
+  - id: technology-selection
+    name: Technology Selection
+    description: Evaluate and select technology stack with rationale
+    inputs:
+      - {name: problem-statement, type: markdown, source: previous_phase}
+    outputs:
+      - {name: tech-stack, type: markdown, file: tech-stack-rationale.md}
+    agent: rapids-lead
+    model: opus
+    gate: false
+
+  - id: decision-records
+    name: Architecture Decision Records
+    description: Document key architectural decisions with context, alternatives, and consequences
+    depends_on: [architecture-design, technology-selection]
+    inputs:
+      - {name: solution-design, type: markdown, from: architecture-design}
+      - {name: tech-stack, type: markdown, from: technology-selection}
+    outputs:
+      - {name: adrs, type: markdown, file: "adr-*.md"}
+    agent: rapids-lead
+    model: opus
+    gate: true
+
+  - id: solution-finalization
+    name: Solution Finalization
+    description: Finalize the solution design incorporating all decisions and feedback
+    depends_on: [decision-records]
+    inputs:
+      - {name: solution-design, type: markdown, from: architecture-design}
+      - {name: adrs, type: markdown, from: decision-records}
+    outputs:
+      - {name: final-design, type: markdown, file: solution-design.md}
+    agent: rapids-lead
+    model: opus
+    gate: true

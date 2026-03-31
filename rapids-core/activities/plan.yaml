@@ -1,0 +1,49 @@
+phase: plan
+activities:
+  - id: feature-decomposition
+    name: Feature Decomposition
+    description: Break the solution into implementable features with acceptance criteria
+    inputs:
+      - {name: solution-design, type: markdown, source: previous_phase}
+      - {name: adrs, type: markdown, source: previous_phase}
+    outputs:
+      - {name: feature-specs, type: xml, file: "F*.xml"}
+    agent: rapids-lead
+    model: opus
+    gate: true
+
+  - id: dependency-analysis
+    name: Dependency Analysis
+    description: Identify inter-feature dependencies and build the dependency graph
+    depends_on: [feature-decomposition]
+    inputs:
+      - {name: feature-specs, type: xml, from: feature-decomposition}
+    outputs:
+      - {name: dependency-graph, type: json, file: dependency-graph.json}
+    agent: rapids-lead
+    model: sonnet
+    gate: true
+
+  - id: wave-planning
+    name: Wave Planning
+    description: Compute implementation waves from the dependency graph for parallel execution
+    depends_on: [dependency-analysis]
+    inputs:
+      - {name: dependency-graph, type: json, from: dependency-analysis}
+    outputs:
+      - {name: wave-plan, type: json, file: wave-plan.json}
+    agent: rapids-lead
+    model: sonnet
+    gate: true
+
+  - id: complexity-estimation
+    name: Complexity Estimation
+    description: Estimate effort per feature and total project timeline
+    depends_on: [feature-decomposition]
+    inputs:
+      - {name: feature-specs, type: xml, from: feature-decomposition}
+    outputs:
+      - {name: estimates, type: markdown, file: complexity-estimates.md}
+    agent: rapids-lead
+    model: sonnet
+    gate: false

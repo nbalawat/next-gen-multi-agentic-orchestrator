@@ -16,6 +16,47 @@
       "description": "Deploy infrastructure via Terraform apply and Cloud Run deployments to GCP"
     }
   },
+  "activities": {
+    "analysis": [
+      {
+        "id": "gcp-architecture-review",
+        "name": "GCP Architecture Review",
+        "description": "Review solution design for GCP best practices, service selection, and cost optimization",
+        "depends_on": ["architecture-design"],
+        "inputs": [{"name": "solution-design", "from": "architecture-design"}],
+        "outputs": [{"name": "gcp-review", "type": "markdown", "file": "gcp-architecture-review.md"}],
+        "agent": "gcp-architect",
+        "model": "opus",
+        "gate": true
+      }
+    ],
+    "implement": [
+      {
+        "id": "terraform-validation",
+        "name": "Terraform Validation",
+        "description": "Run terraform fmt, validate, and plan on all Terraform modules",
+        "depends_on": ["wave-execution"],
+        "inputs": [{"name": "source-code", "from": "wave-execution"}],
+        "outputs": [{"name": "tf-validation", "type": "markdown", "file": "terraform-validation.md"}],
+        "agent": "terraform-engineer",
+        "model": "sonnet",
+        "gate": true
+      }
+    ],
+    "deploy": [
+      {
+        "id": "terraform-apply",
+        "name": "Terraform Apply",
+        "description": "Apply Terraform configurations to provision GCP infrastructure",
+        "depends_on": ["deployment-config"],
+        "inputs": [{"name": "deploy-config", "from": "deployment-config"}],
+        "outputs": [{"name": "tf-apply-result", "type": "markdown", "file": "terraform-apply-result.md"}],
+        "agent": "terraform-engineer",
+        "model": "sonnet",
+        "gate": true
+      }
+    ]
+  },
   "configSchema": {
     "type": "object",
     "properties": {

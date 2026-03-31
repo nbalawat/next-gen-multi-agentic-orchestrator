@@ -1,0 +1,54 @@
+phase: implement
+activities:
+  - id: environment-setup
+    name: Environment Setup
+    description: Set up development environment, dependencies, and test infrastructure
+    inputs:
+      - {name: solution-design, type: markdown, source: previous_phase}
+      - {name: tech-stack, type: markdown, source: previous_phase}
+    outputs:
+      - {name: dev-environment, type: config, file: dev-setup-verified.md}
+    agent: rapids-lead
+    model: sonnet
+    gate: false
+
+  - id: wave-execution
+    name: Wave Execution
+    description: Execute implementation waves using Generator-Evaluator pattern
+    depends_on: [environment-setup]
+    inputs:
+      - {name: wave-plan, type: json, source: previous_phase}
+      - {name: feature-specs, type: xml, source: previous_phase}
+      - {name: dependency-graph, type: json, source: previous_phase}
+    outputs:
+      - {name: feature-progress, type: json, file: "feature-progress-*.json"}
+      - {name: source-code, type: code, file: "src/**"}
+      - {name: tests, type: code, file: "tests/**"}
+    agent: rapids-lead
+    model: sonnet
+    gate: true
+
+  - id: code-review
+    name: Code Review
+    description: Run /simplify for code reuse, quality, and efficiency review
+    depends_on: [wave-execution]
+    inputs:
+      - {name: source-code, type: code, from: wave-execution}
+    outputs:
+      - {name: review-report, type: markdown, file: code-review-report.md}
+    agent: rapids-lead
+    model: sonnet
+    gate: false
+
+  - id: integration-testing
+    name: Integration Testing
+    description: Run full integration test suite and verify all features work together
+    depends_on: [wave-execution]
+    inputs:
+      - {name: source-code, type: code, from: wave-execution}
+      - {name: tests, type: code, from: wave-execution}
+    outputs:
+      - {name: test-report, type: markdown, file: test-report.md}
+    agent: rapids-lead
+    model: sonnet
+    gate: true

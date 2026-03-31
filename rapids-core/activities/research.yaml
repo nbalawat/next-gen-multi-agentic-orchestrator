@@ -1,0 +1,36 @@
+phase: research
+activities:
+  - id: domain-survey
+    name: Domain Survey
+    description: Explore the problem domain, existing solutions, and industry context
+    inputs:
+      - {name: project_description, type: text, source: user}
+    outputs:
+      - {name: domain-findings, type: markdown, file: domain-findings.md}
+    agent: rapids-lead
+    model: opus
+    gate: false
+
+  - id: constraint-mapping
+    name: Constraint Mapping
+    description: Identify budget, timeline, technology, and compliance constraints
+    inputs:
+      - {name: project_description, type: text, source: user}
+    outputs:
+      - {name: constraints, type: markdown, file: constraints.md}
+    agent: rapids-lead
+    model: opus
+    gate: false
+
+  - id: problem-statement
+    name: Problem Statement
+    description: Synthesize research into a clear, actionable problem statement
+    depends_on: [domain-survey, constraint-mapping]
+    inputs:
+      - {name: domain-findings, type: markdown, from: domain-survey}
+      - {name: constraints, type: markdown, from: constraint-mapping}
+    outputs:
+      - {name: problem-statement, type: markdown, file: problem-statement.md}
+    agent: rapids-lead
+    model: opus
+    gate: true

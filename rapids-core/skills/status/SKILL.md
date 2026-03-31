@@ -61,6 +61,32 @@ This shows each work item with:
 - `●` for active, `✓` for complete, `○` for pending
 - Each item's own tier, phase, and status
 
+## Step 2b: Show Activity Checklist for Active Work Item
+
+Display the activities for the active work item's current phase:
+
+```bash
+python3 -c "
+import json
+from pathlib import Path
+from rapids_core.activity_manager import load_phase_activities, format_activity_checklist, read_activity_progress
+from rapids_core.work_item_manager import migrate_rapids_json, get_active_work_item
+
+config = json.loads(Path('.rapids/rapids.json').read_text())
+config = migrate_rapids_json(config)
+item = get_active_work_item(config)
+if item:
+    phase = item['current_phase']
+    try:
+        acts = load_phase_activities(phase)
+        pf = Path(f'.rapids/phases/{phase}/activity-progress-{phase}.json')
+        progress = read_activity_progress(str(pf)) if pf.exists() else None
+        print(format_activity_checklist(acts, progress))
+    except FileNotFoundError:
+        print(f'  No activities defined for {phase} phase.')
+"
+```
+
 ## Step 3: Gather Data
 
 1. **rapids.json** — Work items, active item, plugins

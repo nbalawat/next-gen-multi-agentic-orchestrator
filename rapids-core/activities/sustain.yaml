@@ -1,0 +1,37 @@
+phase: sustain
+activities:
+  - id: monitoring-setup
+    name: Monitoring Setup
+    description: Configure application and infrastructure monitoring dashboards
+    inputs:
+      - {name: production-result, type: markdown, source: previous_phase}
+    outputs:
+      - {name: monitoring-config, type: config, file: monitoring-config.md}
+    agent: rapids-lead
+    model: sonnet
+    gate: true
+
+  - id: alerting-rules
+    name: Alerting Rules
+    description: Define alerting thresholds, notification channels, and escalation policies
+    depends_on: [monitoring-setup]
+    inputs:
+      - {name: monitoring-config, type: config, from: monitoring-setup}
+    outputs:
+      - {name: alerting-config, type: config, file: alerting-rules.md}
+    agent: rapids-lead
+    model: sonnet
+    gate: true
+
+  - id: runbook-creation
+    name: Operational Runbook
+    description: Document operational procedures, troubleshooting guides, and incident response
+    depends_on: [monitoring-setup, alerting-rules]
+    inputs:
+      - {name: monitoring-config, type: config, from: monitoring-setup}
+      - {name: alerting-config, type: config, from: alerting-rules}
+    outputs:
+      - {name: runbook, type: markdown, file: operational-runbook.md}
+    agent: rapids-lead
+    model: sonnet
+    gate: true

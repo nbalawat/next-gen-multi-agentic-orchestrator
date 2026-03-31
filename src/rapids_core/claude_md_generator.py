@@ -153,6 +153,14 @@ def generate_claude_md(
 
         sections.append("\n".join(context_lines))
 
+    # Activity checklist for current phase
+    activities = config.get("activities")
+    activity_progress = config.get("activity_progress")
+    if activities:
+        from rapids_core.activity_manager import format_activity_checklist
+        sections.append(f"## Activities for {phase.capitalize()} Phase\n")
+        sections.append(format_activity_checklist(activities, activity_progress))
+
     # Other active work items (so the agent knows what else is happening)
     if other_work_items:
         wi_lines = ["## Other Active Work Items\n"]
