@@ -30,8 +30,9 @@ Generator (writes code, one acceptance criterion at a time)
 ```
 rapids-core/                    # Core orchestration plugin
 ├── .claude-plugin/plugin.json  # Claude Code plugin manifest
-├── skills/                     # 4 user-facing skills
+├── skills/                     # 5 user-facing skills
 │   ├── start/SKILL.md          #   /rapids-core:start — onboard + classify
+│   ├── add/SKILL.md            #   /rapids-core:add — add bug/enhancement/feature
 │   ├── status/SKILL.md         #   /rapids-core:status — progress + cost
 │   ├── go/SKILL.md             #   /rapids-core:go — advance phases
 │   └── export/SKILL.md         #   /rapids-core:export — client deliverables
@@ -69,10 +70,11 @@ src/rapids_core/                # Python framework logic
 ├── batch_dispatcher.py          # Dispatch plans for /batch parallel execution
 ├── agent_team_orchestrator.py   # Multi-agent team plans for Tier 4-5 waves
 ├── worktree_manager.py          # Git worktree lifecycle (create, merge, cleanup)
-└── feature_progress.py          # Per-feature progress tracking across worktrees
+├── feature_progress.py          # Per-feature progress tracking across worktrees
+└── work_item_manager.py         # Concurrent work items (bugs, features, enhancements)
 
 tests/                          # Multi-layer test suite
-├── framework/test_*.py         # F1: 379 unit tests (zero LLM, $0)
+├── framework/test_*.py         # F1: 437 unit tests (zero LLM, $0)
 ├── framework/hooks/            # F2: 16 hook integration tests ($0)
 ├── framework/recordings/       # F3: Recorded replay tests ($0)
 ├── framework/smoke/            # F4: LLM smoke tests (~$0.05)
@@ -97,7 +99,7 @@ pip install -e ".[dev]"
 ### Run Tests
 
 ```bash
-make test          # F1: 379 unit tests (~0.3s, $0)
+make test          # F1: 437 unit tests (~0.3s, $0)
 make test-hooks    # F2: 16 hook integration tests ($0)
 make test-replay   # F3: Recorded replay tests ($0)
 make test-all      # All free tests

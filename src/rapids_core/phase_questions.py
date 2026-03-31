@@ -201,6 +201,84 @@ def deploy_target_question() -> dict:
     }
 
 
+def work_item_selection_question(work_items: list[dict], active_id: str | None = None) -> dict:
+    """Build the AskUserQuestion payload for selecting which work item to advance.
+
+    Args:
+        work_items: List of active work item dicts.
+        active_id: Currently active work item ID.
+
+    Returns:
+        AskUserQuestion payload dict.
+    """
+    options = []
+    for item in work_items[:4]:
+        is_active = item["id"] == active_id
+        label = f"{item['id']}: {item.get('title', '')[:30]}"
+        if is_active:
+            label += " (Recommended)"
+        options.append({
+            "label": label,
+            "description": (
+                f"{item.get('type', '?')} | T{item.get('tier', '?')} | "
+                f"Phase: {item.get('current_phase', '?')}"
+            ),
+        })
+
+    # Ensure minimum 2 options
+    if len(options) < 2:
+        options.append({
+            "label": "Add new work item",
+            "description": "Create a new bug fix, enhancement, or feature",
+        })
+
+    return {
+        "questions": [
+            {
+                "question": "Which work item should we advance?",
+                "header": "Work item",
+                "multiSelect": False,
+                "options": options[:4],
+            }
+        ]
+    }
+
+
+def work_item_type_question() -> dict:
+    """Build the AskUserQuestion payload for selecting work item type.
+
+    Returns:
+        AskUserQuestion payload dict.
+    """
+    return {
+        "questions": [
+            {
+                "question": "What type of work item are you adding?",
+                "header": "Type",
+                "multiSelect": False,
+                "options": [
+                    {
+                        "label": "Bug fix",
+                        "description": "Fix a specific bug or issue. Typically Tier 1 (implement only).",
+                    },
+                    {
+                        "label": "Enhancement",
+                        "description": "Improve existing functionality. Typically Tier 2 (plan + implement).",
+                    },
+                    {
+                        "label": "Feature",
+                        "description": "Add new functionality. Tier 3-5 depending on scope.",
+                    },
+                    {
+                        "label": "Refactor",
+                        "description": "Restructure code without changing behavior. Typically Tier 1-2.",
+                    },
+                ],
+            }
+        ]
+    }
+
+
 def research_focus_question(phase: str = "research") -> dict:
     """Build the AskUserQuestion payload for research/analysis focus areas.
 

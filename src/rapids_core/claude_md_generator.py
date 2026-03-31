@@ -77,6 +77,8 @@ _MAX_LINES = 200
 def generate_claude_md(
     config: dict,
     plugin_overlays: dict[str, str] | None = None,
+    work_item: dict | None = None,
+    other_work_items: list[dict] | None = None,
 ) -> str:
     """Generate a CLAUDE.md file from the current RAPIDS state.
 
@@ -88,6 +90,10 @@ def generate_claude_md(
             - accumulated_context: dict - Key decisions, constraints, etc. (optional)
             - project_id: str - Project identifier (optional)
         plugin_overlays: Dict mapping plugin name to overlay content string.
+        work_item: Optional active work item dict. If provided, phase/tier
+            are taken from the work item instead of the config.
+        other_work_items: Optional list of other active work item dicts
+            to show in the context section.
 
     Returns:
         Generated CLAUDE.md content string, kept under 200 lines.
@@ -95,16 +101,33 @@ def generate_claude_md(
     if plugin_overlays is None:
         plugin_overlays = {}
 
-    phase = config.get("phase", "implement")
-    tier = config.get("tier", 1)
+    # If a work item is provided, use its phase/tier instead of config-level
+    if work_item:
+        phase = work_item.get("current_phase", config.get("phase", "implement"))
+        tier = work_item.get("tier", config.get("tier", 1))
+    else:
+        phase = config.get("phase", "implement")
+        tier = config.get("tier", 1)
+
     plugins = config.get("plugins", [])
     context = config.get("accumulated_context", {})
     project_id = config.get("project_id", "unknown")
 
     sections: list[str] = [_HEADER]
 
-    # Project context
-    sections.append(f"**Project:** {project_id} | **Tier:** {tier} | **Phase:** {phase}\n")
+    # Project and work item context
+    if work_item:
+        wi_id = work_item.get("id", "?")
+        wi_title = work_item.get("title", "")
+        wi_type = work_item.get("type", "?")
+        sections.append(
+            f"**Project:** {project_id} | **Work Item:** {wi_id} ({wi_type}) "
+            f"| **Tier:** {tier} | **Phase:** {phase}\n"
+        )
+        if wi_title:
+            sections.append(f"**Task:** {wi_title}\n")
+    else:
+        sections.append(f"**Project:** {project_id} | **Tier:** {tier} | **Phase:** {phase}\n")
 
     # Phase instructions
     phase_instructions = _PHASE_INSTRUCTIONS.get(phase, "")
@@ -129,6 +152,19 @@ def generate_claude_md(
             context_lines.append("")
 
         sections.append("\n".join(context_lines))
+
+    # Other active work items (so the agent knows what else is happening)
+    if other_work_items:
+        wi_lines = ["## Other Active Work Items\n"]
+        for owi in other_work_items:
+            owi_id = owi.get("id", "?")
+            owi_title = owi.get("title", "")[:40]
+            owi_type = owi.get("type", "?")
+            owi_phase = owi.get("current_phase", "?")
+            owi_tier = owi.get("tier", "?")
+            wi_lines.append(f"- **{owi_id}** ({owi_type}, T{owi_tier}): {owi_title} — {owi_phase} phase")
+        wi_lines.append("")
+        sections.append("\n".join(wi_lines))
 
     # Plugin overlays
     if plugins and plugin_overlays:

@@ -15,34 +15,76 @@ gets a structured prompt with selectable options.
 
 ---
 
+## Step 0: Load Work Items & Select Active Item
+
+Read `.rapids/rapids.json` and auto-migrate to work items format if needed:
+
+```bash
+python3 -c "
+import json
+from pathlib import Path
+from rapids_core.work_item_manager import migrate_rapids_json, list_work_items, get_active_work_item, format_work_items_table
+
+config = json.loads(Path('.rapids/rapids.json').read_text())
+config = migrate_rapids_json(config)
+Path('.rapids/rapids.json').write_text(json.dumps(config, indent=2))
+
+items = list_work_items(config, active_only=True)
+active_id = config.get('active_work_item')
+
+print(format_work_items_table(items, active_id))
+"
+```
+
+**If multiple active work items exist**, use `AskUserQuestion` to let the user
+choose which one to advance:
+
+```bash
+python3 -c "
+import json
+from rapids_core.phase_questions import work_item_selection_question
+from rapids_core.work_item_manager import list_work_items, migrate_rapids_json
+from pathlib import Path
+
+config = json.loads(Path('.rapids/rapids.json').read_text())
+config = migrate_rapids_json(config)
+items = list_work_items(config, active_only=True)
+active_id = config.get('active_work_item')
+
+if len(items) > 1:
+    print(json.dumps(work_item_selection_question(items, active_id), indent=2))
+"
+```
+
+If the user selects a different work item, switch to it:
+```bash
+${CLAUDE_PLUGIN_ROOT}/scripts/work-item-manager.sh switch .rapids/rapids.json <selected_id>
+```
+
 ## Step 1: Check Current State & Display Phase Banner
 
-Read `.rapids/rapids.json` to determine:
-- Current phase
-- Next phase in the sequence
-- Whether phase gate conditions are met
+Read the **active work item's** state (not the project-level phase):
 
-Display the current phase banner with activity context:
 ```bash
 python3 -c "
 import json
 from pathlib import Path
 from rapids_core.ascii_art import phase_banner
-from rapids_core.phase_router import route_phases
+from rapids_core.work_item_manager import migrate_rapids_json, get_active_work_item
 
 config = json.loads(Path('.rapids/rapids.json').read_text())
-phase = config.get('current', {}).get('phase', 'unknown')
-tier = config.get('scope', {}).get('tier', 0)
+config = migrate_rapids_json(config)
+item = get_active_work_item(config)
 project_id = config.get('project', {}).get('id', 'unknown')
-phases = route_phases(tier)
 
-print(phase_banner(
-    current_phase=phase,
-    activity='Checking phase gate conditions...',
-    tier=tier,
-    project_name=project_id,
-    phases_in_scope=phases,
-))
+if item:
+    print(phase_banner(
+        current_phase=item['current_phase'],
+        activity=f'Work item {item[\"id\"]}: {item.get(\"title\", \"\")}',
+        tier=item['tier'],
+        project_name=project_id,
+        phases_in_scope=item['phases'],
+    ))
 "
 ```
 
