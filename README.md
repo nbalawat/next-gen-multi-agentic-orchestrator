@@ -30,11 +30,12 @@ Generator (writes code, one acceptance criterion at a time)
 ```
 rapids-core/                    # Core orchestration plugin
 ├── .claude-plugin/plugin.json  # Claude Code plugin manifest
-├── skills/                     # 5 user-facing skills
+├── skills/                     # 6 user-facing skills
 │   ├── start/SKILL.md          #   /rapids-core:start — onboard + classify
 │   ├── add/SKILL.md            #   /rapids-core:add — add bug/enhancement/feature
 │   ├── status/SKILL.md         #   /rapids-core:status — progress + cost
 │   ├── go/SKILL.md             #   /rapids-core:go — advance phases
+│   ├── tower/SKILL.md          #   /rapids-core:tower — control tower dashboard
 │   └── export/SKILL.md         #   /rapids-core:export — client deliverables
 ├── agents/rapids-lead.md       # Lead orchestrator agent
 ├── hooks/                      # 7 lifecycle hooks
@@ -72,10 +73,11 @@ src/rapids_core/                # Python framework logic
 ├── worktree_manager.py          # Git worktree lifecycle (create, merge, cleanup)
 ├── feature_progress.py          # Per-feature progress tracking across worktrees
 ├── work_item_manager.py         # Concurrent work items (bugs, features, enhancements)
-└── activity_manager.py          # YAML-defined DAG pipelines within phases
+├── activity_manager.py          # YAML-defined DAG pipelines within phases
+└── control_tower.py             # Centralized governance dashboard
 
 tests/                          # Multi-layer test suite
-├── framework/test_*.py         # F1: 511 unit tests (zero LLM, $0)
+├── framework/test_*.py         # F1: 532 unit tests (zero LLM, $0)
 ├── framework/hooks/            # F2: 16 hook integration tests ($0)
 ├── framework/recordings/       # F3: Recorded replay tests ($0)
 ├── framework/smoke/            # F4: LLM smoke tests (~$0.05)
@@ -100,7 +102,7 @@ pip install -e ".[dev]"
 ### Run Tests
 
 ```bash
-make test          # F1: 511 unit tests (~0.3s, $0)
+make test          # F1: 532 unit tests (~0.3s, $0)
 make test-hooks    # F2: 16 hook integration tests ($0)
 make test-replay   # F3: Recorded replay tests ($0)
 make test-all      # All free tests
