@@ -59,9 +59,36 @@ timeline_file = rapids_dir / 'audit' / 'timeline.jsonl'
 with open(timeline_file, 'a') as f:
     f.write(json.dumps(timeline_entry) + '\n')
 
-# If a Write tool created a .rapids/ artifact, validate it
+# If a Write or Edit tool created/modified a .rapids/ artifact, log lineage event
 tool_name = input_data.get('tool_name', '')
 tool_input = input_data.get('tool_input', {})
+if tool_name in ('Write', 'Edit'):
+    file_path = tool_input.get('file_path', tool_input.get('path', ''))
+    if '.rapids/phases/' in file_path:
+        # Log artifact creation/modification for lineage tracking
+        import os
+        artifact_name = os.path.basename(file_path)
+        # Determine which phase directory this is in
+        parts = file_path.split('.rapids/phases/')
+        if len(parts) > 1:
+            phase_and_rest = parts[1].split('/', 1)
+            artifact_phase = phase_and_rest[0] if phase_and_rest else phase
+        else:
+            artifact_phase = phase
+
+        lineage_entry = {
+            'ts': entry['ts'],
+            'event': 'artifact_created' if tool_name == 'Write' else 'artifact_modified',
+            'phase': artifact_phase,
+            'details': {
+                'path': artifact_name,
+                'full_path': file_path,
+                'tool': tool_name,
+            }
+        }
+        with open(timeline_file, 'a') as f:
+            f.write(json.dumps(lineage_entry) + '\n')
+
 if tool_name == 'Write':
     file_path = tool_input.get('file_path', tool_input.get('path', ''))
     if '.rapids/' in file_path and (file_path.endswith('.xml') or file_path.endswith('.json')):
