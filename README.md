@@ -77,10 +77,11 @@ src/rapids_core/                # Python framework logic
 ├── control_tower.py             # Centralized governance dashboard
 ├── lineage.py                   # Deploy lineage: requirement → code → deployment tracing
 ├── session_manager.py           # Cross-session context persistence and team handoffs
-└── persona.py                   # Role-based behavior and access control
+├── persona.py                   # Role-based behavior and access control
+└── knowledge_fabric.py          # Agent expertise accumulation via ACT → LEARN → REUSE
 
 tests/                          # Multi-layer test suite
-├── framework/test_*.py         # F1: 618 unit tests (zero LLM, $0)
+├── framework/test_*.py         # F1: 648 unit tests (zero LLM, $0)
 ├── framework/hooks/            # F2: 16 hook integration tests ($0)
 ├── framework/recordings/       # F3: Recorded replay tests ($0)
 ├── framework/smoke/            # F4: LLM smoke tests (~$0.05)
@@ -105,7 +106,7 @@ pip install -e ".[dev]"
 ### Run Tests
 
 ```bash
-make test          # F1: 618 unit tests (~0.3s, $0)
+make test          # F1: 648 unit tests (~0.3s, $0)
 make test-hooks    # F2: 16 hook integration tests ($0)
 make test-replay   # F3: Recorded replay tests ($0)
 make test-all      # All free tests
