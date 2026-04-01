@@ -1,0 +1,45 @@
+personas:
+  - id: lead
+    name: Lead
+    description: Full access, orchestrates phases, delegates work, overrides gates
+    allowed_phases: [research, analysis, plan, implement, deploy, sustain]
+    allowed_actions: [read, design, implement, review, approve_gate, override_gate, deploy, delegate]
+    denied_actions: []
+    can_delegate_to: [architect, developer, reviewer]
+    approval_required_for: []
+
+  - id: architect
+    name: Architect
+    description: Designs solutions, makes technology decisions, reviews architecture
+    allowed_phases: [research, analysis, plan]
+    allowed_actions: [read, design, review, approve_gate]
+    denied_actions: [implement, deploy, modify_code, override_gate]
+    can_delegate_to: [developer]
+    approval_required_for: [phase_transition]
+
+  - id: developer
+    name: Developer
+    description: Implements features, writes tests, fixes bugs
+    allowed_phases: [plan, implement, deploy]
+    allowed_actions: [read, implement, modify_code, run_tests]
+    denied_actions: [design, approve_gate, override_gate, deploy_production]
+    can_delegate_to: []
+    approval_required_for: [phase_transition, gate_override]
+
+  - id: reviewer
+    name: Reviewer
+    description: Reviews code and artifacts, approves or rejects, cannot modify directly
+    allowed_phases: [research, analysis, plan, implement, deploy, sustain]
+    allowed_actions: [read, review, approve_gate, reject]
+    denied_actions: [implement, modify_code, deploy, override_gate, delegate]
+    can_delegate_to: []
+    approval_required_for: []
+
+  - id: stakeholder
+    name: Stakeholder
+    description: Views status and provides input, cannot modify artifacts or code
+    allowed_phases: [research, analysis, plan, implement, deploy, sustain]
+    allowed_actions: [read, provide_input, view_status]
+    denied_actions: [implement, modify_code, deploy, design, approve_gate, override_gate, delegate]
+    can_delegate_to: []
+    approval_required_for: [phase_transition, gate_override, design_decision]
