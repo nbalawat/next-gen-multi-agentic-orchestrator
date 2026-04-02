@@ -330,3 +330,12 @@ def format_work_items_table(items: list[dict], active_id: str | None = None) -> 
 
     lines.append("  " + "─" * 72)
     return "\n".join(lines) + "\n"
+
+
+# ─── Aliases for common naming guesses ────────────────────────────────────────
+add_work_item = create_work_item
+new_work_item = create_work_item
+get_work_items = list_work_items
+set_active = switch_work_item
+advance_phase = advance_work_item_phase
+complete_item = complete_work_item

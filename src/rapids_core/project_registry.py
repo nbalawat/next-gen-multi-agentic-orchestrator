@@ -453,5 +453,12 @@ def main() -> None:
         sys.exit(1)
 
 
+# ─── Aliases for common naming guesses ────────────────────────────────────────
+update_phase = update_project_phase
+update_project = register_project
+get_projects = list_projects
+get_workspaces = list_workspaces
+
+
 if __name__ == "__main__":
     main()

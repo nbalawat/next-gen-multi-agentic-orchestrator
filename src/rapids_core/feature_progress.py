@@ -296,5 +296,14 @@ def main() -> None:
         sys.exit(1)
 
 
+# ─── Aliases for common naming guesses ────────────────────────────────────────
+update_progress = update_feature_status
+update_feature_progress = update_feature_status
+mark_feature_complete = update_feature_status
+get_feature_progress = read_feature_progress
+init_feature_progress = initialize_feature_progress
+check_wave_complete = is_wave_complete
+
+
 if __name__ == "__main__":
     main()

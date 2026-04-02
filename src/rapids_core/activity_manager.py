@@ -556,3 +556,12 @@ def format_activity_checklist(
         lines.append("")
 
     return "\n".join(lines)
+
+
+# ─── Aliases for common naming guesses ────────────────────────────────────────
+# Claude often guesses function names. These aliases prevent ImportError.
+
+update_activity_progress = update_activity_status
+mark_activity_complete = update_activity_status
+update_activity = update_activity_status
+complete_activity = update_activity_status
