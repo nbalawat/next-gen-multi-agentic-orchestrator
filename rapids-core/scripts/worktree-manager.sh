@@ -7,9 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-python3 -c "
-import sys
-sys.argv = $(python3 -c "import sys,json; print(json.dumps(sys.argv))" "$0" "$@")
+exec python3 -c "
 from rapids_core.worktree_manager import main
 main()
 " "$@"
