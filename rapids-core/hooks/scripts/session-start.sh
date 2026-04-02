@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SessionStart hook: loads RAPIDS state, shows ASCII banner, and generates CLAUDE.md
 # Input (stdin): {"session_id": "...", "source": "startup|resume", "cwd": "..."}
-set -euo pipefail
+# Hooks must never fail — degrade gracefully, always exit 0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

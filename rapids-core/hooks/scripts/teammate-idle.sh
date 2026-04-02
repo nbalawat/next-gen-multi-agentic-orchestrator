@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # TeammateIdle hook: assigns next unblocked task from the dependency graph
 # Input (stdin): {"session_id": "...", "teammate_id": "...", "cwd": "..."}
-set -euo pipefail
+# Hooks must never fail — degrade gracefully, always exit 0
 
 INPUT=$(cat)
-CWD=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd','.'))")
+CWD=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd','.'))" 2>/dev/null || echo ".")
 
 RAPIDS_DIR="$CWD/.rapids"
 
@@ -37,6 +37,6 @@ if pending_features:
     print(json.dumps({'next_feature': pending_features[0], 'pending_count': len(pending_features)}))
 else:
     print(json.dumps({'next_feature': None, 'pending_count': 0}))
-" 2>&1
+" 2>/dev/null || true
 
 exit 0

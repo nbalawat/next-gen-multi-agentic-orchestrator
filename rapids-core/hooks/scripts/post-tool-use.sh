@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PostToolUse hook: logs cost entries, timeline events, and validates artifacts on write
 # Input (stdin): {"session_id": "...", "tool_name": "...", "tool_input": {...}, "cwd": "..."}
-set -euo pipefail
+# Hooks must never fail — degrade gracefully, always exit 0
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

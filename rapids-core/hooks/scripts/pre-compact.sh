@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # PreCompact hook: archives current context before conversation compaction
 # Input (stdin): {"session_id": "...", "cwd": "..."}
-set -euo pipefail
+# Hooks must never fail — degrade gracefully, always exit 0
 
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd','.'))")

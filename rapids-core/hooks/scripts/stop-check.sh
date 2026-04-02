@@ -2,7 +2,7 @@
 # Stop hook: validates required phase artifacts exist before allowing phase exit
 # Input (stdin): {"session_id": "...", "stop_hook_active": false, "cwd": "..."}
 # Exit codes: 0 = allow stop, 2 = block stop with feedback
-set -euo pipefail
+# Hooks must never fail — degrade gracefully, always exit 0
 
 INPUT=$(cat)
 CWD=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd','.'))")

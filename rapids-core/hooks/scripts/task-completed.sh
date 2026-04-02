@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # TaskCompleted hook: logs task completion to timeline
 # Input (stdin): {"session_id": "...", "task_id": "...", "cwd": "..."}
-set -euo pipefail
+# Hooks must never fail — degrade gracefully, always exit 0
 
 INPUT=$(cat)
-CWD=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd','.'))")
+CWD=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd','.'))" 2>/dev/null || echo ".")
 
 RAPIDS_DIR="$CWD/.rapids"
 
@@ -27,6 +27,6 @@ log_event(
     phase=phase,
     details={'task_id': input_data.get('task_id', '')},
 )
-" 2>&1
+" 2>/dev/null || true
 
 exit 0
