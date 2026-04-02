@@ -1,149 +1,118 @@
 ---
 name: start
 description: >
-  Use this skill to begin a new RAPIDS project. Activates when the user describes
-  a software project to build, asks to "start a new project", "build something",
-  or invokes /rapids-core:start. Handles onboarding, scope classification,
-  plugin detection, project registration, and .rapids/ directory initialization.
+  Use this skill to begin a new RAPIDS project or resume an existing one.
+  Activates when the user describes a project to build, asks to "start",
+  or invokes /rapids-core:start. Auto-detects context to minimize prompts.
 ---
 
 # RAPIDS Project Onboarding
 
-You are starting a new RAPIDS project. Follow these steps exactly.
-
-**IMPORTANT:** At each decision point below, you MUST use the `AskUserQuestion` tool
-to collect user input. Do NOT simply print a question — call the tool so the user
-gets a structured prompt with selectable options.
+**PRIORITY: Minimize friction.** Auto-detect everything possible. Only ask
+questions when you genuinely cannot infer the answer.
 
 ---
 
-## Step 0: Display Welcome Banner & Active Projects
+## Step 0: Auto-Detect Context
 
-First, show the RAPIDS welcome banner with all workspaces and their projects:
-```bash
-python3 -c "
-from rapids_core.ascii_art import welcome_banner
-from rapids_core.project_registry import list_projects, list_workspaces
-projects = list_projects()
-workspaces = list_workspaces()
-print(welcome_banner(projects, workspaces))
-"
-```
-
-Display this banner output to the user so they can see all workspaces and which
-projects are already under RAPIDS management within each workspace.
-
-## Step 1: Ask for Workspace (AskUserQuestion)
-
-Use the `AskUserQuestion` tool to ask the user which workspace this project belongs to.
-A workspace is a parent directory that contains multiple RAPIDS projects.
-
-Generate the payload:
-```bash
-python3 -c "
-import json
-from rapids_core.onboarding import workspace_question
-from rapids_core.project_registry import list_workspaces
-workspaces = list_workspaces()
-print(json.dumps(workspace_question(workspaces), indent=2))
-"
-```
-
-Call `AskUserQuestion` with the generated payload. Based on the response:
-- If they selected an existing workspace → use that workspace path
-- If they chose "Create new workspace" → they type the path in "Other"; create it and
-  register it via `project-registry.sh register-workspace`
-- If they chose "No workspace" → the project is standalone (no workspace association)
-
-## Step 2: Select Project or Create New (AskUserQuestion)
-
-**This step depends on what was chosen in Step 1.**
-
-### If a workspace was selected:
-
-Show the user the existing projects in that workspace so they can pick one
-to **resume**, or create a **new project**:
+Before asking ANY questions, check the current directory:
 
 ```bash
 python3 -c "
 import json
+from pathlib import Path
+
+cwd = '$(pwd)'
+rapids_json = Path(cwd) / '.rapids' / 'rapids.json'
+parent_rapids = any((Path(cwd).parent / d / '.rapids').is_dir() for d in Path(cwd).parent.iterdir() if d.is_dir()) if Path(cwd).parent.is_dir() else False
+
+if rapids_json.exists():
+    print('RESUME')  # Already in a RAPIDS project — just resume
+elif Path(cwd).name == 'rapids-projects' or parent_rapids:
+    print('WORKSPACE')  # In a workspace directory
+else:
+    print('NEW')  # Fresh start
+"
+```
+
+### If RESUME (already in a RAPIDS project):
+
+Skip ALL onboarding. Just show the phase banner and status:
+
+```bash
+python3 -c "
+from rapids_core.config_loader import load_rapids_config, save_rapids_config
+from rapids_core.work_item_manager import migrate_rapids_json, get_active_work_item, format_work_items_table, list_work_items
+from rapids_core.ascii_art import phase_banner
+
+config = load_rapids_config('.rapids')
+config = migrate_rapids_json(config)
+save_rapids_config('.rapids', config)
+project_id = config.get('project', {}).get('id', 'unknown')
+item = get_active_work_item(config)
+items = list_work_items(config, active_only=False)
+active_id = config.get('active_work_item')
+
+if item:
+    print(phase_banner(
+        current_phase=item['current_phase'],
+        activity=f'Active: {item[\"id\"]} — {item.get(\"title\", \"\")}',
+        tier=item['tier'],
+        project_name=project_id,
+        phases_in_scope=item['phases'],
+    ))
+print(format_work_items_table(items, active_id))
+"
+```
+
+Tell the user their project status and suggest `/rapids-core:go` to continue
+or `/rapids-core:add` to add a bug fix or enhancement. **Done — no questions needed.**
+
+### If WORKSPACE (in a workspace directory):
+
+Show projects in this workspace and let user pick or create:
+
+```bash
+python3 -c "
+import json
+from pathlib import Path
+from rapids_core.project_registry import get_workspace_projects, register_workspace
 from rapids_core.onboarding import project_selection_question
-from rapids_core.project_registry import get_workspace_projects
-workspace_path = '<selected_workspace_path>'
-projects = get_workspace_projects(workspace_path)
-print(json.dumps(project_selection_question(projects, workspace_path), indent=2))
+
+cwd = '$(pwd)'
+# Auto-register as workspace if not already
+register_workspace(Path(cwd).name, cwd)
+projects = get_workspace_projects(cwd)
+print(json.dumps(project_selection_question(projects, cwd), indent=2))
 "
 ```
 
-Call `AskUserQuestion` with the generated payload. Based on the response:
-- If they selected an **existing project** → `cd` into that project's directory,
-  load its `.rapids/rapids.json`, and show the current phase banner. The user is
-  resuming this project — skip to Step 10 (display summary) and suggest
-  `/rapids-core:go` to continue.
-- If they chose **"Create new project"** → proceed to Step 2b below.
+Use `AskUserQuestion` with this payload. **ONE question only** — then proceed
+to project creation or resume based on the answer.
 
-### Step 2b: Name the new project (AskUserQuestion)
+### If NEW (fresh start):
 
-If creating a new project inside a workspace, ask for the directory name:
-
-```bash
-python3 -c "
-import json
-from rapids_core.onboarding import new_project_directory_question
-print(json.dumps(new_project_directory_question('<workspace_path>'), indent=2))
-"
-```
-
-The user will type a project name (e.g., `payment-service`). Create the directory
-at `<workspace_path>/<project_name>` with `mkdir -p` and `cd` into it.
-
-### If "No workspace" was selected:
-
-Show the standalone directory question:
-
-```bash
-python3 -c "
-import json
-from rapids_core.onboarding import working_directory_question
-print(json.dumps(working_directory_question('$(pwd)'), indent=2))
-"
-```
-
-**After the user responds:**
-- If they chose "Current directory" → use the current working directory
-- If they chose "Existing directory" → they will type the path in the "Other" field; resolve it to absolute
-- If they chose "Create new directory" → they will type the path; create it with `mkdir -p`
-- Once confirmed, `cd` into that directory for all subsequent operations
-
-## Step 3: Ask What to Build (AskUserQuestion)
-
-**Skip this step if the user selected an existing project in Step 2 (they're resuming).**
-
-If the user hasn't already described their project, use `AskUserQuestion` to ask:
+Use `AskUserQuestion` to ask ONE combined question:
 
 ```json
 {
   "questions": [
     {
-      "question": "What would you like to build? Describe your project briefly.",
-      "header": "Project",
+      "question": "Where should this project live?",
+      "header": "Location",
       "multiSelect": false,
       "options": [
         {
-          "label": "New application",
-          "description": "Build a new application or service from scratch"
+          "label": "Current directory (Recommended)",
+          "description": "Initialize RAPIDS project right here"
         },
         {
-          "label": "New feature",
-          "description": "Add a feature to an existing codebase"
+          "label": "Create subdirectory",
+          "description": "Create a new directory for this project (you'll type the name)"
         },
         {
-          "label": "Bug fix",
-          "description": "Fix a specific bug or issue"
-        },
-        {
-          "label": "Refactor / migration",
-          "description": "Refactor code, migrate infrastructure, or upgrade dependencies"
+          "label": "Different path",
+          "description": "Specify an absolute path"
         }
       ]
     }
@@ -151,201 +120,85 @@ If the user hasn't already described their project, use `AskUserQuestion` to ask
 }
 ```
 
-The user will select a category or type a custom description in "Other". Use their
-response plus any earlier project description to identify:
-- What they want to build
-- Target platforms and technologies
-- Any constraints mentioned (budget, timeline, compliance)
+## Step 1: Classify and Initialize (if creating new project)
 
-## Step 4: Classify Scope
+**If the user already described what to build** (e.g., "Build a REST API for todos"),
+skip asking — use their description directly.
 
-Run the scope classifier to determine the project tier (1-5):
+**If they just said "/start" with no description**, ask briefly:
+
+```json
+{
+  "questions": [
+    {
+      "question": "What are you building?",
+      "header": "Project",
+      "multiSelect": false,
+      "options": [
+        {"label": "New application", "description": "Build from scratch"},
+        {"label": "New feature", "description": "Add to existing codebase"},
+        {"label": "Bug fix", "description": "Fix a specific issue"},
+        {"label": "Refactor", "description": "Restructure existing code"}
+      ]
+    }
+  ]
+}
+```
+
+## Step 2: Scope Classification (auto — no question needed for Tier 1-3)
+
+Run the scope classifier:
 ```bash
 echo '<signals_json>' | ${CLAUDE_PLUGIN_ROOT}/scripts/scope-classifier.sh
 ```
 
-**Scope signals to extract:**
-- `files_impacted`: Estimated number of files that will be created or modified
-- `new_infrastructure`: Whether new infrastructure (cloud resources, databases) is needed
-- `integrations`: List of external systems/services involved
-- `domain_complexity`: "low", "moderate", or "high"
+**For Tier 1-3: auto-accept the classification.** Don't ask for confirmation —
+just tell the user what tier was assigned and continue.
 
-## Step 5: Confirm Scope with User (AskUserQuestion)
+**For Tier 4-5 only:** Use `AskUserQuestion` to confirm scope since these are
+major commitments.
 
-**Always confirm scope classification with the user.** Use `AskUserQuestion` with a
-preview showing the classification details:
+## Step 3: Initialize
 
-```json
-{
-  "questions": [
-    {
-      "question": "RAPIDS classified this as Tier N (Label). Phases: X → Y → Z. Does this look right?",
-      "header": "Scope",
-      "multiSelect": false,
-      "options": [
-        {
-          "label": "Tier N — Label (Recommended)",
-          "description": "Proceed with N phases: X → Y → Z. ~M files, K integration(s).",
-          "preview": "<scope preview box — see onboarding.py>"
-        },
-        {
-          "label": "Adjust tier up",
-          "description": "This project is more complex than estimated — bump the tier higher",
-          "preview": "<adjustment preview — see onboarding.py>"
-        },
-        {
-          "label": "Adjust tier down",
-          "description": "This project is simpler than estimated — lower the tier",
-          "preview": "<adjustment preview — see onboarding.py>"
-        }
-      ]
-    }
-  ]
-}
-```
+All in one step — no more questions:
 
-Generate this payload programmatically:
-```bash
-python3 -c "
-import json
-from rapids_core.onboarding import scope_confirmation_question
-print(json.dumps(scope_confirmation_question(
-    tier=<tier>, tier_label='<label>',
-    phases=<phases_list>,
-    files_impacted=<count>,
-    integrations=<integrations_list>,
-), indent=2))
-"
-```
+1. Create `.rapids/` directory structure
+2. Create `rapids.json` in **canonical format**:
+   ```json
+   {
+     "project": {"id": "<project_name>"},
+     "scope": {"tier": <tier>, "phases": <phases_list>},
+     "current": {"phase": "<first_phase>"},
+     "work_items": [{
+       "id": "WI-001", "title": "<description>", "type": "<type>",
+       "tier": <tier>, "phases": <phases_list>,
+       "current_phase": "<first_phase>", "status": "active"
+     }],
+     "active_work_item": "WI-001",
+     "plugins": []
+   }
+   ```
+   **CRITICAL:** Use this exact nested format. Do NOT flatten it.
+3. Copy phase templates for in-scope phases
+4. Register project in central registry
+5. Register workspace if applicable
+6. Generate CLAUDE.md
+7. Log to timeline
 
-**After the user responds:**
-- If they confirmed → proceed with the classified tier
-- If they chose "Adjust tier up/down" → re-run phase routing with the adjusted tier
+## Step 4: Show Result
 
-## Step 6: Choose Execution Mode (AskUserQuestion)
+Display the phase banner and tell the user:
+- Project tier and phases
+- That `/rapids-core:go` starts the first phase
+- That `/rapids-core:add` can add work items later
 
-Use `AskUserQuestion` to let the user pick an execution mode. The recommended
-option depends on the tier:
-
-```json
-{
-  "questions": [
-    {
-      "question": "Which execution mode should RAPIDS use for this project?",
-      "header": "Exec mode",
-      "multiSelect": false,
-      "options": [
-        {
-          "label": "Autonomous (Recommended)",
-          "description": "RAPIDS runs end-to-end with auto permissions. Best for Tier 1-2."
-        },
-        {
-          "label": "Hybrid",
-          "description": "Auto mode within waves, manual approval at wave boundaries. Best for Tier 3."
-        },
-        {
-          "label": "Human-in-the-loop",
-          "description": "Manual approval for every major action. Best for Tier 4-5."
-        }
-      ]
-    }
-  ]
-}
-```
-
-Generate programmatically:
-```bash
-python3 -c "
-import json
-from rapids_core.onboarding import execution_mode_question
-print(json.dumps(execution_mode_question(<tier>), indent=2))
-"
-```
-
-The recommended option is automatically moved to the first position based on tier.
-
-## Step 7: Detect Domain Plugins
-
-Based on the technologies identified, suggest installing relevant domain plugins:
-- GCP/Terraform/Cloud Run → `rapids-gcp`
-- React/Next.js frontend → `rapids-react`
-- Python/FastAPI backend → `rapids-python`
-
-## Step 8: Initialize Project Structure
-
-Create the `.rapids/` directory with all required subdirectories:
-```
-.rapids/
-├── rapids.json          # Project config (tier, phases, plugins, current state)
-├── audit/
-│   ├── cost.jsonl       # Cost tracking
-│   └── timeline.jsonl   # Event timeline
-├── phases/              # Phase artifacts go here
-│   ├── research/
-│   ├── analysis/
-│   ├── plan/
-│   ├── implement/
-│   ├── deploy/
-│   └── sustain/
-└── context/
-    └── accumulated.json # Accumulated decisions and context
-```
-
-### Step 8b: Copy Phase Templates into Artifact Directories
-
-Based on the project tier and the phases that will execute, copy the appropriate
-templates from `${CLAUDE_PLUGIN_ROOT}/templates/` into the corresponding
-`.rapids/phases/<phase>/` directories. This gives users a starting skeleton
-for each deliverable:
-
-| Phase | Template Source | Destination |
-|-------|---------------|-------------|
-| research | `${CLAUDE_PLUGIN_ROOT}/templates/research/problem-statement.md` | `.rapids/phases/research/problem-statement.md` |
-| analysis | `${CLAUDE_PLUGIN_ROOT}/templates/analysis/solution-design.md` | `.rapids/phases/analysis/solution-design.md` |
-| analysis | `${CLAUDE_PLUGIN_ROOT}/templates/analysis/adr-template.md` | `.rapids/phases/analysis/adr-template.md` |
-| plan | `${CLAUDE_PLUGIN_ROOT}/templates/plan/feature-spec-template.xml` | `.rapids/phases/plan/feature-spec-template.xml` |
-| implement | `${CLAUDE_PLUGIN_ROOT}/templates/implement/evaluator-prompt.md` | `.rapids/phases/implement/evaluator-prompt.md` |
-| implement | `${CLAUDE_PLUGIN_ROOT}/templates/implement/feature-progress-template.json` | `.rapids/phases/implement/feature-progress-template.json` |
-
-Only copy templates for phases that are in scope for this tier. For example,
-Tier 1 (bug fix) only needs implement templates; Tier 5 (platform) gets all of them.
-
-## Step 9: Register Project
-
-Register the project in the central RAPIDS project registry so it can be tracked
-across sessions. Include the workspace path if one was selected:
-```bash
-echo '{"name":"<project_id>","path":"<absolute_working_dir>","workspace":"<workspace_path_or_null>","tier":<tier>,"phase":"<first_phase>","plugins":["<plugin1>"]}' \
-  | ${CLAUDE_PLUGIN_ROOT}/scripts/project-registry.sh register
-```
-
-## Step 10: Generate CLAUDE.md
-
-Run the CLAUDE.md generator for the first phase:
-```bash
-${CLAUDE_PLUGIN_ROOT}/scripts/claude-md-generator.sh .
-```
-
-## Step 11: Display Phase Banner & Present Summary
-
-Display the phase banner showing exactly where we are:
-```bash
-echo '{"phase":"<first_phase>","activity":"Project initialized — ready to begin","tier":<tier>,"project_name":"<project_id>","phases_in_scope":["<phase1>","<phase2>"]}' \
-  | ${CLAUDE_PLUGIN_ROOT}/scripts/ascii-banner.sh phase
-```
-
-Tell the user:
-- Project tier and what that means
-- Which phases will execute (shown visually in the banner)
-- Active plugins
-- Execution mode selected
-- Templates that have been scaffolded into `.rapids/phases/`
-- Next step: run `/rapids-core:go` to begin the first phase
+**Total questions asked for a new project: 1-2 max (location + description if not provided).**
+**Total questions for resuming: 0.**
 
 ## Rules
-- **MUST use `AskUserQuestion` tool** for Steps 1, 2, 2b, 3, 5, and 6 — never just print the question
-- If the user picks an existing project in Step 2, skip Steps 3-9 and go straight to Step 11 (resume)
-- For Tier 4-5, the recommended execution mode is Human-in-the-loop
-- For Tier 1-2, the recommended execution mode is Autonomous
-- Always register the project in the central registry
-- Always copy templates for in-scope phases so artifacts have a starting skeleton
+- **Auto-detect before asking** — if you can figure it out, don't ask
+- **RESUME projects silently** — no questions, just show status
+- **ONE question for workspace** — project selection, not workspace then project
+- **Skip scope confirmation for Tier 1-3** — just tell the user
+- **Use canonical rapids.json format** — nested `project`, `scope`, `current`, `work_items`
+- **Use `AskUserQuestion` only when genuinely needed** — maximum 2 questions for new projects
