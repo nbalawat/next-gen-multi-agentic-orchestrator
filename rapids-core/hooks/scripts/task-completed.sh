@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TaskCompleted hook: updates feature progress and dependency graph
+# TaskCompleted hook: logs task completion to timeline
 # Input (stdin): {"session_id": "...", "task_id": "...", "cwd": "..."}
 set -euo pipefail
 
@@ -12,33 +12,21 @@ if [ ! -d "$RAPIDS_DIR" ]; then
     exit 0
 fi
 
-# Log task completion to timeline
 python3 -c "
-import json, datetime
-from pathlib import Path
+import json
+from rapids_core.config_loader import load_rapids_config
+from rapids_core.timeline import log_event
 
 input_data = json.loads('''$INPUT''')
-rapids_dir = Path('$RAPIDS_DIR')
+config = load_rapids_config('$RAPIDS_DIR')
+phase = config.get('current', {}).get('phase', 'unknown')
 
-rapids_json_path = rapids_dir / 'rapids.json'
-if not rapids_json_path.is_file():
-    exit(0)
-
-rapids_json = json.loads(rapids_json_path.read_text())
-phase = rapids_json.get('current', {}).get('phase', 'unknown')
-
-entry = {
-    'ts': datetime.datetime.utcnow().isoformat() + 'Z',
-    'event': 'task_completed',
-    'phase': phase,
-    'details': {
-        'task_id': input_data.get('task_id', ''),
-    }
-}
-
-timeline_file = rapids_dir / 'audit' / 'timeline.jsonl'
-with open(timeline_file, 'a') as f:
-    f.write(json.dumps(entry) + '\n')
+log_event(
+    '$RAPIDS_DIR',
+    event='task_completed',
+    phase=phase,
+    details={'task_id': input_data.get('task_id', '')},
+)
 " 2>&1
 
 exit 0

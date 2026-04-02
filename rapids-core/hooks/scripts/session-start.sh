@@ -22,24 +22,42 @@ if [ ! -f "$RAPIDS_DIR/rapids.json" ]; then
     exit 0
 fi
 
+# Normalize rapids.json to canonical format (handles flat formats from Claude)
+python3 -c "
+from rapids_core.config_loader import load_rapids_config, save_rapids_config
+config = load_rapids_config('$RAPIDS_DIR')
+if config:
+    save_rapids_config('$RAPIDS_DIR', config)
+" 2>&1 || true
+
 # Display RAPIDS phase banner
 python3 -c "
 import json
 from pathlib import Path
+from rapids_core.config_loader import load_rapids_config
 from rapids_core.ascii_art import phase_banner
-from rapids_core.phase_router import route_phases
+from rapids_core.work_item_manager import migrate_rapids_json, get_active_work_item
 
-config = json.loads(Path('$RAPIDS_DIR/rapids.json').read_text())
-phase = config.get('current', {}).get('phase', 'unknown')
-tier = config.get('scope', {}).get('tier', 0)
+config = load_rapids_config('$RAPIDS_DIR')
+if not config:
+    exit(0)
+
+config = migrate_rapids_json(config)
 project_id = config.get('project', {}).get('id', 'unknown')
-phases = route_phases(tier)
 
-source = '$SOURCE'
-if source == 'resume':
-    activity = 'Resuming session — picking up where we left off'
+item = get_active_work_item(config)
+if item:
+    phase = item['current_phase']
+    tier = item['tier']
+    phases = item['phases']
+    activity = 'Resuming session' if '$SOURCE' == 'resume' else 'Session started'
+    activity += f' — Work item {item[\"id\"]}: {item.get(\"title\", \"\")}'
 else:
-    activity = 'Session started — ready to work'
+    phase = config.get('current', {}).get('phase', 'unknown')
+    tier = config.get('scope', {}).get('tier', 3)
+    from rapids_core.phase_router import route_phases
+    phases = route_phases(tier)
+    activity = 'Resuming session' if '$SOURCE' == 'resume' else 'Session started'
 
 print(phase_banner(
     current_phase=phase,
@@ -48,26 +66,26 @@ print(phase_banner(
     project_name=project_id,
     phases_in_scope=phases,
 ))
-" >&2
+" >&2 || true
 
 # Generate CLAUDE.md
-"$PLUGIN_ROOT/scripts/claude-md-generator.sh" "$CWD" >&2
+"$PLUGIN_ROOT/scripts/claude-md-generator.sh" "$CWD" >&2 || true
 
 # If resuming, add resumption context
 if [ "$SOURCE" = "resume" ]; then
     python3 -c "
 import json
 from pathlib import Path
+from rapids_core.config_loader import load_rapids_config
 
-cwd = '$CWD'
-rapids_json = json.loads(Path(cwd, '.rapids', 'rapids.json').read_text())
-phase = rapids_json.get('current', {}).get('phase', 'unknown')
-tier = rapids_json.get('scope', {}).get('tier', 0)
+config = load_rapids_config('$RAPIDS_DIR')
+phase = config.get('current', {}).get('phase', 'unknown')
+tier = config.get('scope', {}).get('tier', 0)
 
-# Read current CLAUDE.md and prepend welcome back message
-claude_md = Path(cwd, 'CLAUDE.md')
-content = claude_md.read_text()
-resume_msg = f'''
+claude_md = Path('$CWD', 'CLAUDE.md')
+if claude_md.exists():
+    content = claude_md.read_text()
+    resume_msg = f'''
 ## Welcome Back
 
 Resuming RAPIDS session. Current state:
@@ -79,23 +97,14 @@ Review .rapids/rapids.json for full state.
 ---
 
 '''
-claude_md.write_text(resume_msg + content)
-" 2>&1
+    claude_md.write_text(resume_msg + content)
+" 2>&1 || true
 fi
 
 # Log to timeline
 python3 -c "
-import json, datetime
-from pathlib import Path
-
-entry = {
-    'ts': datetime.datetime.utcnow().isoformat() + 'Z',
-    'event': 'session_start',
-    'phase': json.loads(Path('$RAPIDS_DIR/rapids.json').read_text()).get('current',{}).get('phase','unknown'),
-    'details': {'source': '$SOURCE'}
-}
-with open('$RAPIDS_DIR/audit/timeline.jsonl', 'a') as f:
-    f.write(json.dumps(entry) + '\n')
-" 2>&1
+from rapids_core.timeline import log_session_event
+log_session_event('$RAPIDS_DIR', 'session_start', user='$SOURCE')
+" 2>&1 || true
 
 exit 0
