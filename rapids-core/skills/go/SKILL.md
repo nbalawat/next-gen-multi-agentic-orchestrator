@@ -377,8 +377,43 @@ print(phase_banner(
    }
    ```
 
-   Use `AskUserQuestion` to confirm the batch plan, then invoke `/batch` with
-   the formatted prompts from the dispatch plan.
+   Use `AskUserQuestion` to confirm the batch plan, then **you MUST spawn one
+   Agent per feature in the wave using the Agent tool with `isolation: "worktree"`**.
+
+   **For each feature in the batch plan, call the Agent tool like this:**
+
+   ```
+   Agent tool call:
+     description: "Implement feature <FEATURE_ID>"
+     isolation: "worktree"
+     prompt: <the prompt string from dispatch_plan.tasks[i].prompt>
+   ```
+
+   **CRITICAL: Do NOT implement features yourself in the main session.**
+   Each feature MUST be implemented by a sub-agent in its own worktree.
+   The Agent tool with `isolation: "worktree"` creates a git worktree
+   automatically. The sub-agent works in complete isolation and its
+   changes are available on a feature branch when it finishes.
+
+   You can launch multiple agents in parallel by including multiple
+   Agent tool calls in a single message. This is how wave parallelism works.
+
+   After all agents in the wave complete, merge their branches:
+   ```bash
+   python3 -c "
+   from rapids_core.worktree_manager import merge_worktree, cleanup_merged_worktrees
+   import json
+
+   # Merge each feature branch
+   for feature_id in <wave_feature_ids>:
+       branch = 'rapids/<project_id>/' + feature_id
+       result = merge_worktree(branch)
+       print(f'{feature_id}: {\"merged\" if result.success else \"CONFLICT: \" + result.error}')
+
+   # Clean up merged worktrees
+   cleanup_merged_worktrees()
+   "
+   ```
 
    **If method is `"agent_teams"` → Use Agent Team Orchestrator:**
 
@@ -410,12 +445,33 @@ print(phase_banner(
    }
    ```
 
-   Use `AskUserQuestion` to confirm the team plan, then use the `Agent` tool to
-   spawn the lead agent (`rapids-lead`) with the full plan. The lead agent will:
-   - Spawn generator agents per the assignments (each in a worktree)
-   - Monitor progress via feature-progress JSON files
-   - Run evaluators after each feature completes
-   - Handle retries and escalation
+   Use `AskUserQuestion` to confirm the team plan, then **you MUST spawn the
+   rapids-lead agent using the Agent tool**. The lead handles everything:
+
+   ```
+   Agent tool call:
+     description: "Lead orchestrator for Wave N implementation"
+     prompt: |
+       You are the RAPIDS lead orchestrator. Execute the following agent team plan.
+
+       DISPATCH PLAN:
+       <paste the full JSON output from agent-team-orchestrator.sh>
+
+       PROJECT PATH: <absolute path to project>
+
+       Follow the instructions in your agent definition (rapids-lead.md) to:
+       1. For each assignment, spawn the generator agent with isolation: "worktree"
+       2. After each generator completes, merge its worktree branch
+       3. Run the evaluator agent to verify
+       4. On failure, re-spawn with feedback (max 3 retries)
+       5. Track progress in feature-progress files
+       6. Report results when all features in the wave are done
+   ```
+
+   **CRITICAL: You MUST use the Agent tool to spawn sub-agents.**
+   Do NOT implement features directly in this session. The lead agent
+   spawns generator agents, each in their own worktree, and coordinates
+   the Generator-Evaluator cycle.
 
 4b. **Save dispatch plan and initialize feature progress:**
 
@@ -607,6 +663,8 @@ Use `AskUserQuestion` to confirm the approach:
 
 ## Rules
 - **MUST use `AskUserQuestion` tool** at every decision point — never just print questions
+- **MUST use the `Agent` tool with `isolation: "worktree"` to implement features** — NEVER implement features directly in the main session. Each feature gets its own sub-agent in its own worktree. This is non-negotiable.
+- **MUST spawn sub-agents in parallel** when features in a wave are independent — include multiple Agent tool calls in a single message for wave parallelism
 - Always display the phase banner before starting work so the user knows exactly where they are
 - Always display the transition banner when moving between phases
 - Always show the activity banner before each major action (wave start, feature start)
@@ -616,3 +674,4 @@ Use `AskUserQuestion` to confirm the approach:
 - In autonomous mode, AskUserQuestion is skipped for wave boundaries (but still used for failures)
 - Log all phase transitions to timeline.jsonl
 - Update the project registry on every phase change
+- After sub-agents complete, merge their worktree branches and clean up
